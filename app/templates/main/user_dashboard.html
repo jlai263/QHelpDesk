@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>
+                <i class="fas fa-ticket-alt"></i> My Support Tickets
+                <a href="{{ url_for('tickets.create') }}" class="btn btn-primary float-right">
+                    <i class="fas fa-plus"></i> New Ticket
+                </a>
+            </h1>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stat-card bg-primary">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">My Open Tickets</div>
+                        <div class="stat-value">{{ stats.open_tickets }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card bg-warning">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">In Progress</div>
+                        <div class="stat-value">{{ stats.in_progress_tickets }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card bg-success">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">Resolved Tickets</div>
+                        <div class="stat-value">{{ stats.closed_tickets }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Tickets -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Recent Tickets</h5>
+                    <a href="{{ url_for('tickets.index') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if recent_tickets %}
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Title</th>
+                                        <th>Status</th>
+                                        <th>Priority</th>
+                                        <th>Assigned To</th>
+                                        <th>Created By</th>
+                                        <th>Created</th>
+                                        <th>Updated</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ticket in recent_tickets %}
+                                        <tr>
+                                            <td>#{{ ticket.id }}</td>
+                                            <td>
+                                                <a href="{{ url_for('tickets.view', id=ticket.id) }}">{{ ticket.title }}</a>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-{{ ticket.status_class }}">{{ ticket.status }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-{{ ticket.priority_class }}">{{ ticket.priority }}</span>
+                                            </td>
+                                            <td>
+                                                {% if ticket.assignee %}
+                                                    <span class="text-primary">{{ ticket.assignee.username }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">Unassigned</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ ticket.submitter.username }}</td>
+                                            <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>
+                                                <a href="{{ url_for('tickets.view', id=ticket.id) }}" class="btn btn-sm btn-info">
+                                                    <i class="fas fa-eye"></i> View
+                                                </a>
+                                                {% if current_user.is_staff or current_user.id == ticket.submitter_id %}
+                                                    <form action="{{ url_for('tickets.delete', id=ticket.id) }}" method="post" class="d-inline">
+                                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this ticket?');">
+                                                            <i class="fas fa-trash"></i> Delete
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No tickets found. <a href="{{ url_for('tickets.create') }}">Create a new ticket</a> to get started.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card.bg-primary {
+    background: linear-gradient(135deg, #0061f2 0%, #0044cc 100%);
+}
+
+.stat-card.bg-warning {
+    background: linear-gradient(135deg, #f6c23e 0%, #f4b619 100%);
+}
+
+.stat-card.bg-success {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}
+
+.stat-card-body {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    opacity: 0.7;
+}
+
+/* Badge styles */
+.badge {
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.badge-primary { background-color: #0061f2; color: white; }
+.badge-success { background-color: #28a745; color: white; }
+.badge-warning { background-color: #f6c23e; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.badge-info { background-color: #17a2b8; color: white; }
+.badge-secondary { background-color: #6c757d; color: white; }
+</style>
+{% endblock %} 

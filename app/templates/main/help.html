@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="help-page-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="help-box text-center">
+                    <h1><i class="fas fa-life-ring"></i> Need Help?</h1>
+                    <p class="lead">Our support team is here to assist you with any questions or concerns.</p>
+                    
+                    <div class="contact-info mt-4">
+                        <div class="contact-item">
+                            <i class="fas fa-phone fa-2x"></i>
+                            <h3>Call Us</h3>
+                            <p>+1 (905) 805-6882 🇨🇦</p>
+                            <small class="text-muted">Monday to Friday, 9 AM - 5 PM EST</small>
+                        </div>
+                        
+                        <div class="contact-item mt-4">
+                            <i class="fas fa-envelope fa-2x"></i>
+                            <h3>Email Us</h3>
+                            <p>support@qhelpdeskapp.com</p>
+                            <small class="text-muted">We typically respond within 1 business day</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.help-page-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: -60px; /* Offset the navbar height */
+    padding-top: 60px; /* Add padding to account for navbar */
+}
+
+.help-box {
+    background: white;
+    border-radius: 10px;
+    padding: 40px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+.help-box h1 {
+    color: #0061f2;
+    margin-bottom: 20px;
+}
+
+.help-box .lead {
+    color: #6c757d;
+    margin-bottom: 40px;
+}
+
+.contact-info {
+    margin-top: 40px;
+}
+
+.contact-item {
+    padding: 20px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    transition: transform 0.3s ease;
+}
+
+.contact-item:hover {
+    transform: translateY(-5px);
+}
+
+.contact-item i {
+    color: #0061f2;
+    margin-bottom: 15px;
+}
+
+.contact-item h3 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.contact-item p {
+    font-size: 1.2em;
+    color: #0061f2;
+    margin-bottom: 5px;
+}
+</style>
+{% endblock %} 

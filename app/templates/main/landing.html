@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+{% if current_user.is_authenticated %}
+    {% if show_org_options %}
+        <div class="alert alert-info">
+            {{ message }}
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fas fa-plus-circle"></i> Create Organization</h3>
+                    </div>
+                    <div class="panel-body">
+                        <p>Start your own organization and invite team members to collaborate.</p>
+                        <a href="{{ url_for('admin.create_organization') }}" class="btn btn-primary btn-block">
+                            Create New Organization
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title"><i class="fas fa-envelope"></i> Join Organization</h3>
+                    </div>
+                    <div class="panel-body">
+                        {% if pending_invites %}
+                            <h4>Pending Invitations</h4>
+                            {% for invite in pending_invites %}
+                                <div class="invite-card">
+                                    <p>Invitation from: {{ invite.organization.name }}</p>
+                                    <form action="{{ url_for('main.accept_invite', token=invite.token) }}" method="post" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-success">Accept</button>
+                                    </form>
+                                    <form action="{{ url_for('main.decline_invite', token=invite.token) }}" method="post" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-danger">Decline</button>
+                                    </form>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                        <form action="{{ url_for('main.join_with_token') }}" method="post">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-group">
+                                <label for="token">Have an invitation token?</label>
+                                <input type="text" class="form-control" id="token" name="token" placeholder="Enter your invitation token">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Join Organization</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% else %}
+<!-- Hero Section -->
+<section class="hero" id="home">
+    <div class="hero-content text-center">
+        <h1>Transform Your Customer Support</h1>
+        <p class="lead">Streamline your help desk operations with AI-powered solutions and team collaboration</p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">Get Started Free</a>
+            <a href="#features" class="btn btn-outline-light btn-lg">Learn More</a>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section" id="features">
+    <div class="container">
+        <h2 class="text-center">Why Choose QHelpDesk?</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <i class="fas fa-robot feature-icon"></i>
+                    <h3>AI-Powered Support</h3>
+                    <p>Leverage artificial intelligence to provide instant responses and smart ticket routing</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <i class="fas fa-users feature-icon"></i>
+                    <h3>Team Collaboration</h3>
+                    <p>Work together seamlessly with role-based access and real-time updates</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <i class="fas fa-chart-line feature-icon"></i>
+                    <h3>Analytics & Insights</h3>
+                    <p>Make data-driven decisions with comprehensive reporting and analytics</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Getting Started Section -->
+<section class="getting-started-section" id="getting-started">
+    <div class="container">
+        <h2 class="text-center">Get Started in Minutes</h2>
+        <p class="text-center lead">No installation required - start improving your customer support instantly</p>
+        
+        <div class="row steps-container">
+            <div class="col-md-3">
+                <div class="step-box">
+                    <div class="step-number">1</div>
+                    <i class="fas fa-user-plus step-icon"></i>
+                    <h3>Sign Up</h3>
+                    <p>Create your free account in less than 60 seconds</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="step-box">
+                    <div class="step-number">2</div>
+                    <i class="fas fa-users-cog step-icon"></i>
+                    <h3>Add Your Team</h3>
+                    <p>Invite team members and assign roles</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="step-box">
+                    <div class="step-number">3</div>
+                    <i class="fas fa-envelope-open-text step-icon"></i>
+                    <h3>Configure Email</h3>
+                    <p>Connect your support email in one click</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="step-box">
+                    <div class="step-number">4</div>
+                    <i class="fas fa-check-circle step-icon"></i>
+                    <h3>Start Supporting</h3>
+                    <p>Begin managing tickets immediately</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">Start Now - It's Free</a>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing Section -->
+<section class="pricing-section" id="pricing">
+    <div class="container">
+        <h2 class="text-center mb-5">Simple, Transparent Pricing</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="pricing-box">
+                    <h3>Free</h3>
+                    <div class="price">$0<span>/month</span></div>
+                    <ul class="features-list">
+                        <li><i class="fas fa-check"></i> Up to 5 team members</li>
+                        <li><i class="fas fa-check"></i> Basic ticket management</li>
+                        <li><i class="fas fa-check"></i> Email support</li>
+                    </ul>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="pricing-box featured">
+                    <h3>Professional</h3>
+                    <div class="price">$15<span>/month</span></div>
+                    <ul class="features-list">
+                        <li><i class="fas fa-check"></i> Up to 25 team members</li>
+                        <li><i class="fas fa-check"></i> Advanced ticket management</li>
+                        <li><i class="fas fa-check"></i> AI-powered responses</li>
+                        <li><i class="fas fa-check"></i> Priority support</li>
+                    </ul>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Start Free Trial</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="pricing-box">
+                    <h3>Enterprise</h3>
+                    <div class="price">$50<span>/month</span></div>
+                    <ul class="features-list">
+                        <li><i class="fas fa-check"></i> Unlimited team members</li>
+                        <li><i class="fas fa-check"></i> Advanced analytics</li>
+                        <li><i class="fas fa-check"></i> All Professional features</li>
+                        <li><i class="fas fa-check"></i> Custom integrations</li>
+                    </ul>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- About Section -->
+<section class="about-section" id="about">
+    <div class="container">
+        <h2 class="text-center">About QHelpDesk</h2>
+        <div class="row">
+            <div class="col-md-8 col-md-offset-2 text-center">
+                <p class="lead">QHelpDesk is a modern help desk solution designed to streamline customer support operations. Our platform combines the power of AI with intuitive team collaboration tools to help businesses provide exceptional customer service.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Section -->
+<section class="contact-section" id="contact">
+    <div class="container">
+        <h2 class="text-center">Get in Touch</h2>
+        <div class="row">
+            <div class="col-md-6 col-md-offset-3">
+                <div class="contact-box text-center">
+                    <p class="lead">Have questions? We're here to help!</p>
+                    <p><i class="fas fa-envelope"></i> support@qhelpdesk.com</p>
+                    <p><i class="fas fa-phone"></i> +1 (905) 805-6882 🇨🇦</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<style>
+/* Hero Section */
+.hero {
+    background: linear-gradient(135deg, #0061f2 0%, #00ba88 100%);
+    color: white;
+    padding: 100px 0;
+    margin: -20px -15px 0;
+}
+
+.hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.hero h1 {
+    font-size: 3.5em;
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.hero .lead {
+    font-size: 1.5em;
+    margin-bottom: 30px;
+}
+
+.cta-buttons .btn {
+    margin: 10px;
+    padding: 12px 30px;
+    font-size: 1.2em;
+}
+
+.btn-outline-light {
+    color: white;
+    border-color: white;
+}
+
+.btn-outline-light:hover {
+    background: white;
+    color: #0061f2;
+}
+
+/* Features Section */
+.features-section {
+    padding: 80px 0;
+    background: white;
+}
+
+.feature-box {
+    text-align: center;
+    padding: 30px;
+    margin-bottom: 30px;
+    transition: transform 0.3s ease;
+}
+
+.feature-box:hover {
+    transform: translateY(-10px);
+}
+
+.feature-icon {
+    font-size: 3em;
+    color: #0061f2;
+    margin-bottom: 20px;
+}
+
+/* Getting Started Section */
+.getting-started-section {
+    padding: 80px 0;
+    background: white;
+}
+
+.getting-started-section h2 {
+    margin-bottom: 20px;
+    font-size: 2.5em;
+    font-weight: 600;
+}
+
+.getting-started-section .lead {
+    color: #6c757d;
+    margin-bottom: 50px;
+}
+
+.steps-container {
+    margin: 40px 0;
+}
+
+.step-box {
+    text-align: center;
+    padding: 30px 20px;
+    position: relative;
+    transition: transform 0.3s ease;
+}
+
+.step-box:hover {
+    transform: translateY(-5px);
+}
+
+.step-number {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #0061f2;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    line-height: 30px;
+    font-weight: bold;
+    z-index: 1;
+}
+
+.step-icon {
+    font-size: 2.5em;
+    color: #0061f2;
+    margin: 20px 0;
+}
+
+.step-box h3 {
+    font-size: 1.3em;
+    margin: 15px 0;
+    color: #2c3e50;
+}
+
+.step-box p {
+    color: #6c757d;
+    margin: 0;
+}
+
+.mt-4 {
+    margin-top: 40px;
+}
+
+@media (max-width: 768px) {
+    .step-box {
+        margin-bottom: 40px;
+    }
+    
+    .steps-container {
+        margin: 20px 0;
+    }
+}
+
+/* Pricing Section */
+.pricing-section {
+    padding: 120px 0 80px;
+    background: #f8f9fa;
+}
+
+.pricing-section h2 {
+    margin-bottom: 60px;
+    font-size: 2.5em;
+    font-weight: 600;
+}
+
+.pricing-box {
+    background: white;
+    border-radius: 10px;
+    padding: 40px 30px;
+    margin-bottom: 30px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.pricing-box:hover {
+    transform: translateY(-5px);
+}
+
+.pricing-box.featured {
+    border: 2px solid #0061f2;
+    transform: scale(1.05);
+}
+
+.pricing-box.featured:hover {
+    transform: scale(1.05) translateY(-5px);
+}
+
+.price {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #0061f2;
+    margin: 20px 0;
+}
+
+.price span {
+    font-size: 0.4em;
+    color: #6c757d;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin: 30px 0;
+    min-height: 160px;
+}
+
+.features-list li {
+    margin: 15px 0;
+    color: #2c3e50;
+}
+
+.features-list i {
+    color: #00ba88;
+    margin-right: 10px;
+}
+
+.pricing-box .btn {
+    padding: 12px 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.pricing-box .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,97,242,0.2);
+}
+
+/* About Section */
+.about-section {
+    padding: 80px 0;
+    background: white;
+}
+
+/* Contact Section */
+.contact-section {
+    padding: 80px 0;
+    background: #f8f9fa;
+}
+
+.contact-box {
+    background: white;
+    border-radius: 10px;
+    padding: 40px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.social-links {
+    margin-top: 30px;
+}
+
+.social-links .btn {
+    margin: 0 5px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 0;
+    line-height: 40px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 2.5em;
+    }
+    
+    .hero .lead {
+        font-size: 1.2em;
+    }
+    
+    .pricing-box.featured {
+        transform: none;
+    }
+    
+    .pricing-box.featured:hover {
+        transform: translateY(-5px);
+    }
+}
+
+/* Existing styles for authenticated user content */
+.invite-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+}
+
+.panel {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.panel-heading {
+    border-radius: 10px 10px 0 0;
+}
+
+/* Add hover underline animation for authenticated menu items */
+.navbar-nav > li > a {
+    position: relative;
+}
+
+.navbar-nav > li > a:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background-color: #0061f2;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.navbar-nav > li > a:hover:after {
+    width: calc(100% - 30px);  /* Adjust for padding */
+}
+
+/* Exclude buttons from underline animation */
+.navbar-nav > li > a.btn:after,
+.navbar-nav > li > a.dropdown-toggle:after {
+    display: none;
+}
+
+/* Adjust icon spacing in dropdown */
+.navbar-nav .dropdown-toggle .fas {
+    margin-right: 8px;  /* Increased spacing between icon and username */
+}
+
+.dropdown-menu > li > a .fas {
+    margin-right: 8px;  /* Consistent spacing in dropdown menu items */
+    width: 16px;  /* Fixed width for icons to align text */
+}
+</style>
+{% endblock %} 

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="row">
+    <div class="col-md-8 col-md-offset-2">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">Create Organization</h3>
+            </div>
+            <div class="panel-body">
+                <form method="POST" action="{{ url_for('admin.create_organization') }}">
+                    {{ form.hidden_tag() }}
+                    <div class="form-group">
+                        {{ form.name.label }}
+                        {{ form.name(class="form-control", placeholder="Enter your organization name") }}
+                        {% for error in form.name.errors %}
+                            <span class="text-danger">{{ error }}</span>
+                        {% endfor %}
+                        <small class="text-muted">This is the display name for your organization.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.domain.label }}
+                        <div class="input-group">
+                            <span class="input-group-addon">@</span>
+                            {{ form.domain(class="form-control", placeholder="company.com") }}
+                        </div>
+                        {% for error in form.domain.errors %}
+                            <span class="text-danger">{{ error }}</span>
+                        {% endfor %}
+                        <small class="text-muted">Users must have an email address from this domain to join your organization.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-building"></i> Create Organization
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.panel {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.panel-heading {
+    background: linear-gradient(135deg, #0062cc, #0096ff);
+    color: white;
+    border: none;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.input-group-addon {
+    background: #f8f9fa;
+    border-color: #ced4da;
+}
+
+.btn-primary {
+    padding: 8px 20px;
+    font-weight: 500;
+}
+
+.btn-primary i {
+    margin-right: 8px;
+}
+
+.text-muted {
+    display: block;
+    margin-top: 5px;
+}
+</style>
+{% endblock %} 

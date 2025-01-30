@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h1>
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+                {% if current_user.is_admin or current_user.role == 'staff' %}
+                <a href="{{ url_for('admin.manage_organization') }}" class="btn btn-primary float-right">
+                    <i class="fas fa-cog"></i> Manage Organization
+                </a>
+                {% endif %}
+            </h1>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card bg-primary">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">Total Tickets</div>
+                        <div class="stat-value">{{ stats.total_tickets }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-warning">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">Open Tickets</div>
+                        <div class="stat-value">{{ stats.open_tickets }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-danger">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">High Priority</div>
+                        <div class="stat-value">{{ stats.high_priority }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card bg-success">
+                <div class="stat-card-body">
+                    <div class="stat-card-info">
+                        <div class="stat-label">Team Members</div>
+                        <div class="stat-value">{{ stats.team_members }}</div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Support Overview -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Support Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Average Response Time</h6>
+                            <h3>{{ support_stats.avg_response_time }}</h3>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Resolved Today</h6>
+                            <h3>{{ support_stats.resolved_today }}</h3>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-muted">Resolution Rate</h6>
+                            <h3>{{ support_stats.resolution_rate }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Filters -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quick Filters</h5>
+                </div>
+                <div class="card-body">
+                    <div class="filter-buttons mb-3">
+                        <button class="btn btn-outline-primary filter-btn" data-filter="assigned_to_me">
+                            <i class="fas fa-user"></i> Assigned to Me
+                        </button>
+                        <button class="btn btn-outline-danger filter-btn" data-filter="high_priority">
+                            <i class="fas fa-exclamation-circle"></i> High Priority
+                        </button>
+                        <button class="btn btn-outline-info filter-btn" data-filter="needs_response">
+                            <i class="fas fa-reply"></i> Needs Response
+                        </button>
+                        <button class="btn btn-outline-warning filter-btn" data-filter="overdue">
+                            <i class="fas fa-clock"></i> Overdue
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Assigned To</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="filtered-tickets">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="quick-actions-list">
+                        <a href="{{ url_for('tickets.create') }}" class="quick-action-item">
+                            <i class="fas fa-plus"></i>
+                            <span>New Ticket</span>
+                        </a>
+                        <a href="{{ url_for('tickets.index') }}" class="quick-action-item">
+                            <i class="fas fa-list"></i>
+                            <span>View All Tickets</span>
+                        </a>
+                        <a href="{{ url_for('main.ai_chat') }}" class="quick-action-item">
+                            <i class="fas fa-robot"></i>
+                            <span>AI Assistant</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card.bg-primary {
+    background: linear-gradient(135deg, #0061f2 0%, #0044cc 100%);
+}
+
+.stat-card.bg-warning {
+    background: linear-gradient(135deg, #f6c23e 0%, #f4b619 100%);
+}
+
+.stat-card.bg-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.stat-card.bg-success {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+}
+
+.stat-card-body {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+    opacity: 0.7;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    border: none;
+    background: #f8f9fa;
+    color: #2c3e50;
+}
+
+.filter-btn:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.filter-btn i {
+    font-size: 1.1em;
+}
+
+/* Active states for filter buttons */
+.filter-btn[data-filter="assigned_to_me"].active {
+    background: #0061f2;
+    color: white;
+}
+
+.filter-btn[data-filter="high_priority"].active {
+    background: #dc3545;
+    color: white;
+}
+
+.filter-btn[data-filter="needs_response"].active {
+    background: #17a2b8;
+    color: white;
+}
+
+.filter-btn[data-filter="overdue"].active {
+    background: #f6c23e;
+    color: white;
+}
+
+.quick-action-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    color: #2c3e50;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.quick-action-item:last-child {
+    border-bottom: none;
+}
+
+.quick-action-item:hover {
+    background: #f8f9fa;
+    color: #0061f2;
+    text-decoration: none;
+    padding-left: 25px;
+}
+
+.quick-action-item i {
+    font-size: 1.2em;
+    width: 24px;
+    text-align: center;
+}
+
+/* Badge styles for ticket status and priority */
+.badge {
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.badge-primary { background-color: #0061f2; color: white; }
+.badge-success { background-color: #28a745; color: white; }
+.badge-warning { background-color: #f6c23e; color: white; }
+.badge-danger { background-color: #dc3545; color: white; }
+.badge-info { background-color: #17a2b8; color: white; }
+.badge-secondary { background-color: #6c757d; color: white; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const filteredTicketsTable = document.getElementById('filtered-tickets');
+    let activeFilters = new Set();
+
+    // Function to fetch and display tickets
+    function fetchTickets() {
+        const queryString = activeFilters.size > 0 
+            ? `?${Array.from(activeFilters).map(f => `filters=${f}`).join('&')}`
+            : '';
+            
+        fetch(`/tickets/filter${queryString}`)
+            .then(response => response.json())
+            .then(data => {
+                // Clear current tickets
+                filteredTicketsTable.innerHTML = '';
+                
+                if (data.tickets.length === 0) {
+                    filteredTicketsTable.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No tickets found</td></tr>';
+                    return;
+                }
+                
+                // Add filtered tickets
+                data.tickets.forEach(ticket => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>#${ticket.id}</td>
+                        <td><a href="/tickets/${ticket.id}">${ticket.title}</a></td>
+                        <td><span class="badge badge-${ticket.status_class}">${ticket.status}</span></td>
+                        <td><span class="badge badge-${ticket.priority_class}">${ticket.priority}</span></td>
+                        <td>${ticket.assignee || '<span class="text-muted">Unassigned</span>'}</td>
+                        <td>${new Date(ticket.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <a href="/tickets/${ticket.id}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </td>
+                    `;
+                    filteredTicketsTable.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching filtered tickets:', error);
+                filteredTicketsTable.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading tickets</td></tr>';
+            });
+    }
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            
+            // Toggle active state
+            this.classList.toggle('active');
+            
+            if (activeFilters.has(filter)) {
+                activeFilters.delete(filter);
+            } else {
+                activeFilters.add(filter);
+            }
+            
+            fetchTickets();
+        });
+    });
+
+    // Load tickets when page loads
+    fetchTickets();
+});
+</script>
+{% endblock %} 

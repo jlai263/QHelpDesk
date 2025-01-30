@@ -1,0 +1,481 @@
+{% extends 'bootstrap/base.html' %}
+
+{% block title %}
+    {% if title %}{{ title }} - QHelpDesk{% else %}Welcome to QHelpDesk{% endif %}
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+/* Prevent text selection */
+.navbar-nav > li > a {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.navbar-custom {
+    background-color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-height: 60px;
+    height: 60px;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+.navbar-header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-brand {
+    padding: 0 15px 0 0 !important;
+    height: 60px !important;
+    line-height: 60px !important;
+    color: #0061f2 !important;
+    font-size: 24px;
+    font-weight: 700;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.navbar-nav {
+    margin: 0 !important;
+    padding: 0 !important;
+    float: left !important;
+    height: 60px;
+}
+
+.navbar-nav > li {
+    float: left;
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-nav > li > a {
+    padding: 0 15px !important;
+    line-height: 60px !important;
+    height: 60px !important;
+    color: #2c3e50 !important;
+    font-weight: 500;
+    position: relative;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.navbar-nav > li > a i {
+    margin-right: 8px !important;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle) {
+    position: relative;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background-color: #0061f2;
+    transition: width 0.3s ease;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):hover {
+    color: #0061f2 !important;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):hover:after {
+    width: calc(100% - 30px);
+}
+
+/* Active state for nav items */
+.navbar-nav > li.active > a:not(.btn-signup):not(.dropdown-toggle),
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle).active {
+    color: #0061f2 !important;
+}
+
+.navbar-nav > li.active > a:not(.btn-signup):not(.dropdown-toggle):after,
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle).active:after {
+    width: calc(100% - 30px);
+}
+
+.navbar-right {
+    float: right !important;
+    margin: 0 !important;
+}
+
+.navbar-collapse {
+    padding: 0 !important;
+    border: none !important;
+}
+
+.btn-signup {
+    background-color: #0061f2 !important;
+    color: #ffffff !important;
+    border: 1px solid #0061f2 !important;
+    padding: 8px 20px !important;
+    border-radius: 4px !important;
+    font-weight: 500 !important;
+    margin: 10px 0 !important;
+    height: 40px !important;
+    line-height: 24px !important;
+    transition: all 0.3s ease !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.btn-signup:hover, 
+.navbar-nav > li > a.btn-signup:hover {
+    background-color: #ffffff !important;
+    color: #0061f2 !important;
+    border-color: #0061f2 !important;
+}
+
+.navbar-nav > li > a.btn-signup {
+    padding: 0 20px !important;
+    margin: 10px 0 10px 10px !important;
+    height: 40px !important;
+    line-height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    color: #ffffff !important;
+}
+
+/* Explicitly remove all underline-related styles for sign-up button */
+.navbar-nav > li > a.btn-signup:after,
+.navbar-nav > li > a.btn-signup:before,
+.navbar-nav > li.active > a.btn-signup:after,
+.navbar-nav > li.active > a.btn-signup:before,
+.navbar-nav > li > a.btn-signup:hover:after,
+.navbar-nav > li > a.btn-signup:hover:before,
+.navbar-nav > li > a.btn-signup.active:after,
+.navbar-nav > li > a.btn-signup.active:before {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    content: none !important;
+}
+
+.navbar-nav > li > a.btn-signup i {
+    margin-right: 6px !important;
+}
+
+/* Make sure the sign-up button never shows the underline */
+.navbar-nav > li.active > a.btn-signup:after,
+.navbar-nav > li > a.btn-signup.active:after {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .navbar-nav {
+        margin: 0 -15px !important;
+        float: none !important;
+    }
+    
+    .navbar-nav > li {
+        float: none;
+    }
+    
+    .navbar-right {
+        float: none !important;
+        margin: 0 -15px !important;
+    }
+    
+    .btn-signup {
+        margin: 10px 15px !important;
+    }
+    
+    .navbar-collapse {
+        padding: 0 15px !important;
+    }
+}
+
+/* Remove active state styles */
+.navbar-nav > li > a.active {
+    position: relative;
+}
+
+.navbar-nav > li > a.nav-section:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background-color: #0061f2;
+    transition: width 0.3s ease;
+}
+
+.navbar-nav > li > a.nav-section:hover:after {
+    width: 100%;
+}
+
+/* Update navbar links to support the indicator */
+.navbar-nav > li > a.nav-section {
+    position: relative;
+}
+
+/* Dashboard Tiles */
+.dashboard-tile {
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    color: #0061f2;
+    transition: all 0.3s ease;
+    height: 100%;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: rgba(17, 12, 46, 0.15) 0px 48px 100px 0px;
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-tile:hover {
+    transform: translateY(-5px);
+}
+
+.dashboard-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: #0061f2;
+}
+
+.dashboard-tile.yellow {
+    color: #ffa726;
+}
+
+.dashboard-tile.yellow::before {
+    background: #ffa726;
+}
+
+.dashboard-tile.green {
+    color: #2ecc71;
+}
+
+.dashboard-tile.green::before {
+    background: #2ecc71;
+}
+
+.dashboard-tile .tile-label {
+    font-size: 0.9em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 15px;
+    color: #6c757d;
+}
+
+.dashboard-tile .tile-number {
+    font-size: 3.5em;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 10px;
+}
+
+.dashboard-tile .tile-icon {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    font-size: 3em;
+    opacity: 0.1;
+    transition: all 0.3s ease;
+}
+
+.dashboard-tile:hover .tile-icon {
+    transform: scale(1.1);
+    opacity: 0.2;
+}
+
+.dashboard-tiles-row {
+    margin: 30px -15px;
+}
+
+.dashboard-tile-col {
+    padding: 15px;
+}
+
+.navbar-nav > li > a.btn-signup:hover {
+    color: #0061f2 !important;
+    background: #ffffff;
+}
+
+.navbar-nav > li.active > a {
+    background: none !important;
+    color: #0061f2 !important;
+}
+
+/* Adjust dropdown alignment */
+.navbar-nav > li.dropdown > a {
+    height: 60px !important;
+    line-height: 60px !important;
+    padding: 0 15px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+/* Dropdown menu icon spacing */
+.navbar-nav > li.dropdown > a i {
+    margin-right: 6px !important;
+}
+
+.dropdown-menu > li > a {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 20px !important;
+}
+
+.dropdown-menu > li > a i {
+    margin-right: 8px !important;
+    width: 16px !important;
+    text-align: center !important;
+}
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-default navbar-fixed-top navbar-custom">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="fas fa-headset"></i> QHelpDesk
+            </a>
+        </div>
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav">
+                {% if current_user.is_authenticated %}
+                    <li><a href="{{ url_for('main.index') }}"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="{{ url_for('tickets.index') }}"><i class="fas fa-ticket-alt"></i> Tickets</a></li>
+                    <li><a href="{{ url_for('main.ai_chat') }}"><i class="fas fa-robot"></i> AI Chat</a></li>
+                    {% if current_user.is_admin %}
+                    <li><a href="{{ url_for('admin.manage_organization') }}"><i class="fas fa-building"></i> Manage Organization</a></li>
+                    {% endif %}
+                {% else %}
+                    <li><a href="{{ url_for('main.index') }}#features"><i class="fas fa-star"></i> Features</a></li>
+                    <li><a href="{{ url_for('main.index') }}#pricing"><i class="fas fa-tag"></i> Pricing</a></li>
+                    <li><a href="{{ url_for('main.index') }}#about"><i class="fas fa-info-circle"></i> About</a></li>
+                    <li><a href="{{ url_for('main.index') }}#contact"><i class="fas fa-envelope"></i> Contact</a></li>
+                {% endif %}
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('main.help') }}"><i class="fas fa-life-ring"></i> Help</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-user"></i> {{ current_user.username }} <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a href="{{ url_for('auth.profile') }}"><i class="fas fa-user-circle"></i> Profile</a></li>
+                        <li><a href="{{ url_for('auth.change_password') }}"><i class="fas fa-key"></i> Change Password</a></li>
+                        <li role="separator" class="divider"></li>
+                        <li><a href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <li><a href="{{ url_for('auth.login') }}"><i class="fas fa-sign-in-alt"></i> Login</a></li>
+                <li><a href="{{ url_for('auth.register') }}" class="btn-signup"><i class="fas fa-user-plus"></i> Sign Up</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container {% if request.endpoint != 'main.help' %}mt-80{% endif %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block app_content %}{% endblock %}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{super()}}
+<script>
+    $(document).ready(function() {
+        // Initialize Bootstrap components
+        $('[data-toggle="dropdown"]').dropdown();
+        $('[data-toggle="modal"]').modal();
+        
+        // Close alert messages after 5 seconds
+        window.setTimeout(function() {
+            $(".alert").fadeTo(500, 0).slideUp(500, function(){
+                $(this).remove(); 
+            });
+        }, 5000);
+
+        // Smooth scrolling for anchor links
+        $('a[href*="#"]').not('[href="#"]').not('[href="#0"]').click(function(event) {
+            if (
+                location.pathname.replace(/^\//, '') == this.pathname.replace(/^\//, '') 
+                && 
+                location.hostname == this.hostname
+            ) {
+                var target = $(this.hash);
+                target = target.length ? target : $('[name=' + this.hash.slice(1) + ']');
+                
+                if (target.length) {
+                    event.preventDefault();
+                    $('html, body').animate({
+                        scrollTop: target.offset().top - 80
+                    }, 800);
+                    
+                    if (history.pushState) {
+                        history.pushState(null, null, target.selector);
+                    } else {
+                        location.hash = target.selector;
+                    }
+                }
+            }
+        });
+
+        // Highlight active section in navbar
+        $(window).scroll(function() {
+            var scrollDistance = $(window).scrollTop() + 100;
+            
+            if (location.pathname === '/' || location.pathname === '/index') {
+                $('section').each(function(i) {
+                    if ($(this).position().top <= scrollDistance) {
+                        $('.navbar-nav a.nav-section.active').removeClass('active');
+                        $('.navbar-nav a.nav-section').eq(i).addClass('active');
+                    }
+                });
+            }
+        }).scroll();
+    });
+</script>
+{% block page_scripts %}{% endblock %}
+{% endblock %} 

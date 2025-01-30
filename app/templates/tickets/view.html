@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="page-header">
+            <h1>
+                Ticket #{{ ticket.id }}: {{ ticket.title }}
+                <div class="pull-right">
+                    <a href="{{ url_for('tickets.index') }}" class="btn btn-default">
+                        <span class="glyphicon glyphicon-arrow-left"></span> Back to List
+                    </a>
+                </div>
+            </h1>
+        </div>
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Status:</strong> 
+                        <span class="label label-{{ ticket.status_class }}">{{ ticket.status }}</span>
+                        <strong class="ml-3">Priority:</strong>
+                        <span class="label label-{{ ticket.priority_class }}">{{ ticket.priority }}</span>
+                        <strong class="ml-3">Category:</strong>
+                        <span class="label label-default">{{ ticket.category }}</span>
+                    </div>
+                    <div class="col-md-6 text-right">
+                        <strong>Created:</strong> {{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        <strong class="ml-3">Updated:</strong> {{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                    </div>
+                </div>
+            </div>
+            <div class="panel-body">
+                <h4>Description</h4>
+                <p>{{ ticket.description }}</p>
+
+                <div class="support-assistant-box">
+                    <div class="support-assistant-header">
+                        <i class="fas fa-robot"></i>
+                        <span>AI Support Assistant</span>
+                    </div>
+                    <div class="support-assistant-content">
+                        {{ ticket.ai_suggestion or "No AI suggestion available yet." }}
+                    </div>
+                </div>
+
+                <h4>Responses</h4>
+                {% if ticket.responses %}
+                    {% for response in ticket.responses %}
+                        <div class="media">
+                            <div class="media-body">
+                                <h4 class="media-heading">
+                                    {{ response.user.username }}
+                                    <small>{{ response.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </h4>
+                                <p>{{ response.content }}</p>
+                            </div>
+                        </div>
+                        {% if not loop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No responses yet.</p>
+                {% endif %}
+
+                <hr>
+                <form action="{{ url_for('tickets.add_response', id=ticket.id) }}" method="post">
+                    {{ form.hidden_tag() }}
+                    <div class="form-group">
+                        <label for="content">Add Response</label>
+                        <textarea name="content" id="content" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Submit Response
+                    </button>
+                </form>
+
+                {% if current_user.is_staff %}
+                    <hr>
+                    <form action="{{ url_for('tickets.update', id=ticket.id) }}" method="post" class="form-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="status">Update Status:</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="open" {% if ticket.status == 'open' %}selected{% endif %}>Open</option>
+                                <option value="in_progress" {% if ticket.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                <option value="on_hold" {% if ticket.status == 'on_hold' %}selected{% endif %}>On Hold</option>
+                                <option value="closed" {% if ticket.status == 'closed' %}selected{% endif %}>Closed</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .support-assistant-box {
+        margin: 20px 0;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-left: 5px solid #17a2b8;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .support-assistant-header {
+        padding: 15px 20px;
+        background: #f1f8f9;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #17a2b8;
+        font-size: 1.2em;
+        font-weight: 600;
+    }
+
+    .support-assistant-header i {
+        font-size: 1.2em;
+    }
+
+    .support-assistant-content {
+        padding: 20px;
+        color: #495057;
+        font-size: 1.1em;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %} 

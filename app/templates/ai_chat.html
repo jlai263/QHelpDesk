@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="container">
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="chat-header-title">
+                <i class="fas fa-robot"></i> AI Support Assistant
+            </div>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message-row ai-message">
+                <div class="message-bubble">
+                    <div class="message-text">Hello! I'm your IT support assistant. How can I help you today?</div>
+                </div>
+            </div>
+        </div>
+        <div class="chat-input">
+            <form id="chatForm">
+                <div class="input-group">
+                    <input type="text" id="chatInput" class="form-control" placeholder="Type your message here...">
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="submit" title="Send message">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+}
+
+.chat-header {
+    background: linear-gradient(135deg, #0062cc, #0096ff);
+    color: white;
+    padding: 15px 20px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.chat-header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chat-header-title i {
+    font-size: 24px;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #f8f9fa;
+}
+
+.message-row {
+    margin-bottom: 15px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: messageAppear 0.3s ease forwards;
+}
+
+@keyframes messageAppear {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 15px;
+    position: relative;
+    display: inline-block;
+}
+
+.user-message {
+    text-align: right;
+}
+
+.user-message .message-bubble {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border-radius: 15px 15px 0 15px;
+    margin-left: auto;
+}
+
+.ai-message .message-bubble {
+    background: white;
+    color: #343a40;
+    border-radius: 15px 15px 15px 0;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.message-text {
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.chat-input {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #e9ecef;
+}
+
+.input-group {
+    background: #f8f9fa;
+    border-radius: 25px;
+    padding: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+}
+
+.form-control {
+    border: none;
+    background: transparent;
+    padding: 12px 20px;
+    font-size: 16px;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.form-control:focus {
+    box-shadow: none;
+    outline: none;
+    background: white;
+}
+
+.input-group-append {
+    margin-left: auto;
+}
+
+.btn-primary {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border: none;
+    margin-right: 0;
+    transition: transform 0.2s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: scale(1.05);
+}
+
+.btn-primary i {
+    font-size: 18px;
+}
+
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 123, 255, 0.1);
+    border-radius: 15px;
+    margin-bottom: 10px;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background: #007bff;
+    border-radius: 50%;
+    margin: 0 2px;
+    display: inline-block;
+    animation: typing 1s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Custom scrollbar */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+
+    chatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = chatInput.value.trim();
+        if (message) {
+            // Add user message
+            addMessage(message, 'user');
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Get CSRF token from meta tag
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
+            // Make API call
+            fetch('/ai_chat/message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ 
+                    message: message 
+                })
+            })
+            .then(async response => {
+                console.log('Response status:', response.status);  // Debug log
+                const contentType = response.headers.get('content-type');
+                
+                try {
+                    const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.response || 'Server error');
+                    }
+                    return data;
+                } catch (error) {
+                    if (!response.ok) {
+                        throw new Error('Server error - please try again');
+                    }
+                    throw new Error('Invalid response format');
+                }
+            })
+            .then(data => {
+                console.log('Success response:', data);  // Debug log
+                hideTypingIndicator();
+                if (data && data.response) {
+                    addMessage(data.response, 'ai');
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                hideTypingIndicator();
+                addMessage(error.message || 'An error occurred. Please try again.', 'ai error');
+            });
+
+            chatInput.value = '';
+        }
+    });
+
+    function addMessage(message, type) {
+        const messageRow = document.createElement('div');
+        messageRow.className = `message-row ${type}-message`;
+        messageRow.innerHTML = `
+            <div class="message-bubble">
+                <div class="message-text">${message}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageRow);
+        scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'message-row ai-message';
+        indicator.id = 'typingIndicator';
+        indicator.innerHTML = `
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        chatMessages.appendChild(indicator);
+        scrollToBottom();
+    }
+
+    function hideTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Focus input on load
+    chatInput.focus();
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="page-header">
+            <h1>
+                Support Tickets
+                <a href="{{ url_for('tickets.create') }}" class="btn btn-primary pull-right">
+                    <span class="glyphicon glyphicon-plus"></span> New Ticket
+                </a>
+            </h1>
+        </div>
+        
+        {% if tickets %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Assigned To</th>
+                            <th>Created By</th>
+                            <th>Created</th>
+                            <th>Updated</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets %}
+                            <tr>
+                                <td>{{ ticket.id }}</td>
+                                <td>
+                                    <a href="{{ url_for('tickets.view', id=ticket.id) }}">
+                                        {{ ticket.title }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="label label-{{ ticket.status_class }}">
+                                        {{ ticket.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="label label-{{ ticket.priority_class }}">
+                                        {{ ticket.priority }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if ticket.assignee %}
+                                        <span class="text-primary">{{ ticket.assignee.username }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Unassigned</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ ticket.submitter.username }}</td>
+                                <td>{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ ticket.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('tickets.view', id=ticket.id) }}" class="btn btn-xs btn-info">
+                                        <span class="glyphicon glyphicon-eye-open"></span> View
+                                    </a>
+                                    {% if current_user.is_staff or current_user.id == ticket.submitter_id %}
+                                        <form action="{{ url_for('tickets.delete', id=ticket.id) }}" method="post" style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('Are you sure you want to delete this ticket?');">
+                                                <span class="glyphicon glyphicon-trash"></span> Delete
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No tickets found. <a href="{{ url_for('tickets.create') }}">Create a new ticket</a> to get started.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
