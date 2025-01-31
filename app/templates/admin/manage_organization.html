@@ -513,9 +513,9 @@ code {
                                 <p><strong>Current Team Size:</strong> {{ members|length }} members</p>
                                 <p><strong>Remaining Seats:</strong> {% if organization.subscription_plan.name == 'Enterprise' %}Unlimited{% else %}{{ organization.subscription_plan.team_size_limit - members|length }}{% endif %} seats</p>
                                     
-                                    <!-- Show Cancel button only for active subscriptions -->
-                                    {% if organization.subscription_plan and organization.current_subscription and organization.current_subscription.status != 'cancelled' %}
-                                        <div class="cancel-subscription-container">
+                                    <!-- Show Cancel button only for paid active subscriptions -->
+                                    {% if organization.subscription_plan and organization.current_subscription and organization.current_subscription.status != 'cancelled' and organization.subscription_plan.price > 0 %}
+                                        <div class="cancel-subscription-container mt-3">
                                             <button type="button" 
                                                     id="cancelSubscriptionBtn" 
                                                     class="btn btn-danger"
@@ -531,20 +531,22 @@ code {
                                             <div class="mt-4 alert alert-warning subscription-end-alert" style="display: block !important;">
                                                 <h5><i class="fas fa-info-circle"></i> Subscription Status</h5>
                                                 <p style="margin-bottom: 5px;"><strong>Your subscription will end on {{ organization.current_subscription.end_date.strftime('%B %d, %Y') }}</strong></p>
-                                                <p>You will continue to have access to all Professional features until this date.</p>
+                                                <p>You will continue to have access to all features until this date.</p>
                                                 <p>After this date:</p>
                                                 <ul>
                                                     <li>Your plan will automatically switch to the Free plan</li>
                                                     <li>Team size will be limited to the Free plan's limit</li>
-                                                    <li>You can resubscribe to the Professional plan at any time</li>
+                                                    <li>You can resubscribe at any time</li>
                                                 </ul>
                                                 <p class="small text-muted">Remaining time: {{ ((organization.current_subscription.end_date - current_time).days)|abs }} days</p>
                                             </div>
                                         {% else %}
                                             <div class="mt-4 alert alert-success subscription-status-alert subscription-end-alert" style="display: block !important;">
                                                 <h5><i class="fas fa-check-circle"></i> Active Subscription</h5>
-                                                <p style="margin-bottom: 5px;"><strong>Your Professional subscription is active</strong></p>
-                                                <p>Next billing date: {{ organization.current_subscription.next_billing_date.strftime('%B %d, %Y') }}</p>
+                                                <p style="margin-bottom: 5px;"><strong>Your {{ organization.subscription_plan.name }} plan is active</strong></p>
+                                                {% if organization.subscription_plan.price > 0 %}
+                                                    <p>Next billing date: {{ organization.current_subscription.next_billing_date.strftime('%B %d, %Y') }}</p>
+                                                {% endif %}
                                             </div>
                                         {% endif %}
                                     {% endif %}
