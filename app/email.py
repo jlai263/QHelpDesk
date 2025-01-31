@@ -43,7 +43,12 @@ def send_email(subject, sender, recipients, text_body, html_body):
         msg = Message(subject, sender=sender, recipients=recipients)
         msg.body = text_body
         msg.html = html_body
-        Thread(target=send_async_email, args=(current_app._get_current_object(), msg)).start()
+        
+        # Create a daemon thread that will not block the application
+        email_thread = Thread(target=send_async_email, args=(current_app._get_current_object(), msg))
+        email_thread.daemon = True
+        email_thread.start()
+        
         logging.info("Email thread started")
     except Exception as e:
         logging.error(f"Error preparing email: {str(e)}")
