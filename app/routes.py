@@ -8,7 +8,7 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/admin/webhook', methods=['POST'])
+@bp.route('/admin/webhook', methods=['POST'], endpoint='stripe_webhook')
 def stripe_webhook():
     """Handle Stripe webhook events"""
     # Disable CSRF for this route

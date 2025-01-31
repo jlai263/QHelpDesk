@@ -50,7 +50,6 @@ def create_app(config_class=Config):
     # Exempt webhook routes from CSRF protection
     csrf.exempt(main_bp.view_functions['stripe_webhook'])
     csrf.exempt(admin_bp.view_functions['webhook'])
-    csrf.exempt(admin_bp.view_functions['admin_webhook'])
 
     return app
 

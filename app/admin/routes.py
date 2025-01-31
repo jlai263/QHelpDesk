@@ -527,7 +527,7 @@ def payment_success():
     
     return redirect(url_for('admin.manage_organization'))
 
-@bp.route('/webhook', methods=['POST'])
+@bp.route('/webhook', methods=['POST'], endpoint='webhook')
 def stripe_webhook():
     """Handle Stripe webhook events"""
     # Disable CSRF for this route
