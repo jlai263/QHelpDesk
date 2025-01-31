@@ -14,10 +14,12 @@ import stripe
 
 def get_stripe():
     """Get Stripe instance with current configuration"""
-    stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
-    if not stripe.api_key or stripe.api_key == 'your-stripe-secret-key':
-        raise ValueError('Invalid Stripe secret key. Please check your configuration.')
-    return stripe
+    if not hasattr(get_stripe, 'stripe_instance'):
+        stripe.api_key = current_app.config.get('STRIPE_SECRET_KEY')
+        if not stripe.api_key or stripe.api_key == 'your-stripe-secret-key':
+            raise ValueError('Invalid Stripe secret key. Please check your configuration.')
+        get_stripe.stripe_instance = stripe
+    return get_stripe.stripe_instance
 
 class CreateOrganizationForm(FlaskForm):
     name = StringField('Organization Name', validators=[DataRequired()])
@@ -475,12 +477,43 @@ def payment_success():
         return redirect(url_for('admin.manage_organization'))
     
     try:
-        # Process the successful payment by redirecting to change_plan with CSRF token
-        csrf_token = generate_csrf()
-        return redirect(url_for('admin.change_plan', plan_id=plan_id, csrf_token=csrf_token))
+        # Get the plan
+        plan = SubscriptionPlan.query.get(plan_id)
+        if not plan:
+            flash('Invalid plan selected.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+        
+        org = current_user.organization
+        if not org:
+            flash('No organization found.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+        
+        # Update the organization's subscription
+        if org.current_subscription:
+            org.current_subscription.status = 'cancelled'
+            org.current_subscription.end_date = datetime.utcnow()
+        
+        # Create new subscription
+        subscription = Subscription(
+            organization_id=org.id,
+            plan_id=plan.id,
+            status='active',
+            start_date=datetime.utcnow(),
+            next_billing_date=datetime.utcnow() + timedelta(days=30)
+        )
+        db.session.add(subscription)
+        
+        # Update organization's subscription
+        org.subscription_plan_id = plan.id
+        org.current_subscription_id = subscription.id
+        
+        db.session.commit()
+        flash(f'Successfully upgraded to {plan.name} plan!', 'success')
+        
     except Exception as e:
         flash(f'Error processing payment: {str(e)}', 'danger')
-        return redirect(url_for('admin.manage_organization'))
+    
+    return redirect(url_for('admin.manage_organization'))
 
 @bp.route('/webhook', methods=['POST'])
 def stripe_webhook():
