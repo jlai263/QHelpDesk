@@ -178,7 +178,7 @@
                                     {% if organization.current_subscription.next_billing_date %}
                                         <p><strong>Next Payment:</strong> {{ organization.current_subscription.next_billing_date.strftime('%B %d, %Y') }}</p>
                                     {% endif %}
-                                    {% if organization.current_subscription.status == 'cancelled' and organization.current_subscription.end_date %}
+                                    {% if organization.current_subscription.end_date %}
                                         <p><strong>Active Until:</strong> {{ organization.current_subscription.end_date.strftime('%B %d, %Y') }}</p>
                                         <div class="alert alert-info">
                                             <i class="fas fa-info-circle"></i> Your subscription will automatically switch to the Free plan after this date.
@@ -186,9 +186,12 @@
                                     {% endif %}
                                     {% if organization.subscription_plan.price > 0 %}
                                         <div class="subscription-actions mt-3">
-                                            <a href="{{ url_for('admin.cancel_subscription') }}" class="btn btn-danger">
-                                                <i class="fas fa-times-circle"></i> Cancel Subscription
-                                            </a>
+                                            <form action="{{ url_for('admin.cancel_subscription') }}" method="post" style="display: inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-danger">
+                                                    <i class="fas fa-times-circle"></i> Cancel Subscription
+                                                </button>
+                                            </form>
                                             {% set free_plan = subscription_plans|selectattr('price', 'equalto', 0)|first %}
                                             {% if free_plan %}
                                                 <form action="{{ url_for('admin.change_plan', plan_id=free_plan.id) }}" method="post" style="display: inline-block; margin-left: 10px;">

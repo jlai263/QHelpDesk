@@ -619,83 +619,68 @@ def stripe_webhook():
         print(f'Stripe webhook error: {str(e)}')
         return jsonify({'error': str(e)}), 400
 
-@bp.route('/cancel_subscription')
+@bp.route('/cancel_subscription', methods=['POST'])
 @login_required
 @admin_required
 def cancel_subscription():
-    """Show the subscription cancellation confirmation page."""
     org = current_user.organization
     if not org:
         flash('You need to be part of an organization to manage subscriptions.', 'warning')
         return redirect(url_for('main.index'))
-    
-    if not org.subscription_plan or not org.current_subscription:
-        flash('No active subscription found.', 'warning')
-        return redirect(url_for('admin.manage_organization'))
-    
-    if org.subscription_plan.price == 0:
-        flash('You cannot cancel a free plan.', 'warning')
-        return redirect(url_for('admin.manage_organization'))
-    
-    return render_template('admin/cancel_subscription.html', 
-                         organization=org)
-
-@bp.route('/process_cancellation', methods=['POST'])
-@login_required
-@admin_required
-def process_cancellation():
-    """Process the subscription cancellation."""
-    org = current_user.organization
-    if not org:
-        flash('You need to be part of an organization to manage subscriptions.', 'warning')
-        return redirect(url_for('main.index'))
-    
-    if not org.subscription_plan or not org.current_subscription:
-        flash('No active subscription found.', 'warning')
-        return redirect(url_for('admin.manage_organization'))
-    
-    # Get the feedback
-    reason = request.form.get('cancellation_reason')
-    comment = request.form.get('feedback_comment', '')
     
     try:
-        # Cancel the subscription in Stripe
-        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
-        if org.stripe_subscription_id:
-            stripe.Subscription.modify(
-                org.stripe_subscription_id,
-                cancel_at_period_end=True,
-                cancellation_details={
-                    'feedback': reason,
-                    'comment': comment
-                }
-            )
-        
-        # Update our database
+        # Get the current subscription
         subscription = org.current_subscription
-        subscription.status = 'cancelled'
-        subscription.end_date = subscription.next_billing_date
+        if not subscription:
+            flash('No active subscription found.', 'warning')
+            return redirect(url_for('admin.manage_organization'))
+        
+        # If there's a Stripe subscription, cancel it
+        if org.stripe_subscription_id:
+            stripe_instance = get_stripe()
+            try:
+                stripe_sub = stripe_instance.Subscription.retrieve(org.stripe_subscription_id)
+                stripe_sub.cancel_at_period_end = True
+                stripe_sub.save()
+                
+                # Set the end date to the current period end
+                subscription.end_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                subscription.status = 'cancelled'
+                
+                # Log the cancellation
+                current_app.logger.info(f"Subscription {subscription.id} cancelled. Will end on {subscription.end_date}")
+            except stripe.error.StripeError as e:
+                flash(f'Error cancelling Stripe subscription: {str(e)}', 'danger')
+                return redirect(url_for('admin.manage_organization'))
+        else:
+            # For non-Stripe subscriptions, set end date to current billing period end
+            if subscription.next_billing_date:
+                subscription.end_date = subscription.next_billing_date
+            else:
+                subscription.end_date = datetime.utcnow() + timedelta(days=30)
+            subscription.status = 'cancelled'
         
         # Get the free plan
         free_plan = SubscriptionPlan.query.filter_by(price=0).first()
         if not free_plan:
-            raise Exception('Free plan not found in the database')
+            flash('Unable to find free plan.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
         
-        # Create a new subscription for the free plan that will start when the current one ends
+        # Create a new free plan subscription that starts when the current one ends
         new_subscription = Subscription(
             organization_id=org.id,
             plan_id=free_plan.id,
             status='scheduled',
-            start_date=subscription.next_billing_date,
-            next_billing_date=subscription.next_billing_date + timedelta(days=30)
+            start_date=subscription.end_date,
         )
-        
         db.session.add(new_subscription)
-        db.session.commit()
         
-        flash('Your subscription has been cancelled. It will remain active until the end of the current billing period.', 'success')
+        db.session.commit()
+        flash('Your subscription has been cancelled. It will remain active until the end of the current billing period.', 'info')
+        
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Error cancelling subscription: {str(e)}")
         flash(f'Error cancelling subscription: {str(e)}', 'danger')
     
     return redirect(url_for('admin.manage_organization')) 
