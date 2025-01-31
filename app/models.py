@@ -4,27 +4,30 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 import uuid
 import re
+from sqlalchemy.orm import relationship
+from sqlalchemy import event
 
 class Organization(db.Model):
     __tablename__ = 'organizations'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
-    domain = db.Column(db.String(100), unique=True)  # e.g., "company.com"
+    name = db.Column(db.String(64), index=True)
+    domain = db.Column(db.String(120), index=True, unique=True)
+    stripe_subscription_id = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     subscription_plan_id = db.Column(db.Integer, db.ForeignKey('subscription_plans.id', name='fk_org_subscription_plan'))
     current_subscription_id = db.Column(db.Integer, db.ForeignKey('subscriptions.id', name='fk_org_current_subscription'))
     
     # Relationships
-    members = db.relationship('User', back_populates='organization')
-    tickets = db.relationship('Ticket', back_populates='organization')
+    users = db.relationship('User', backref='organization', lazy='dynamic')
     invitations = db.relationship('Invitation', back_populates='organization', lazy='dynamic')
+    current_subscription = db.relationship('Subscription', foreign_keys=[current_subscription_id])
+    subscription_plan = db.relationship('SubscriptionPlan', back_populates='organizations')
+    tickets = db.relationship('Ticket', back_populates='organization')
     subscriptions = db.relationship('Subscription', backref='organization', 
                                   primaryjoin="Organization.id==Subscription.organization_id",
                                   lazy='dynamic')
-    current_subscription = db.relationship('Subscription', 
-                                         primaryjoin="Organization.current_subscription_id==Subscription.id",
-                                         uselist=False)
+    subscription_feedbacks = db.relationship('SubscriptionFeedback', back_populates='organization')
 
     def __repr__(self):
         return f'<Organization {self.name}>'
@@ -69,8 +72,7 @@ class User(UserMixin, db.Model):
     
     # Organization relationship
     organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))
-    organization = db.relationship('Organization', back_populates='members')
-
+    
     # Relationships
     tickets = db.relationship('Ticket', 
                             foreign_keys='Ticket.submitter_id',
@@ -127,14 +129,14 @@ class Ticket(db.Model):
     
     # Organization relationship
     organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))
-    organization = db.relationship('Organization', back_populates='tickets')
+    organization = relationship('Organization', back_populates='tickets')
 
     # Relationships
-    comments = db.relationship('TicketComment', backref='ticket',
+    comments = relationship('TicketComment', backref='ticket',
                              cascade='all, delete-orphan',
                              lazy='dynamic')
-    responses = db.relationship('TicketResponse', backref='ticket', lazy='dynamic')
-    last_updated_by = db.relationship('User', foreign_keys=[last_updated_by_id])
+    responses = relationship('TicketResponse', backref='ticket', lazy='dynamic')
+    last_updated_by = relationship('User', foreign_keys=[last_updated_by_id])
 
     @property
     def status_class(self):
@@ -205,7 +207,7 @@ class TicketResponse(db.Model):
     created_at = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     ticket_id = db.Column(db.Integer, db.ForeignKey('tickets.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    user = db.relationship('User', back_populates='responses')
+    user = relationship('User', back_populates='responses')
 
     def __repr__(self):
         return f'<TicketResponse {self.id}>'
@@ -221,7 +223,7 @@ class Invitation(db.Model):
     accepted = db.Column(db.Boolean, default=False)
     accepted_at = db.Column(db.DateTime)
     
-    # Relationships
+    # Relationship
     organization = db.relationship('Organization', back_populates='invitations')
     
     def is_expired(self):
@@ -238,7 +240,7 @@ class SubscriptionPlan(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    organizations = db.relationship('Organization', backref='subscription_plan', lazy='dynamic')
+    organizations = db.relationship('Organization', back_populates='subscription_plan', lazy='dynamic')
 
     def __repr__(self):
         return f'<SubscriptionPlan {self.name}>'
@@ -263,6 +265,17 @@ class Subscription(db.Model):
     def is_active(self):
         return (self.status == 'active' and 
                 (self.end_date is None or self.end_date > datetime.utcnow()))
+
+class SubscriptionFeedback(db.Model):
+    __tablename__ = 'subscription_feedbacks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    feedback = db.Column(db.Text, nullable=False)
+    reason = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    organization = db.relationship('Organization', back_populates='subscription_feedbacks')
 
 @login.user_loader
 def load_user(id):

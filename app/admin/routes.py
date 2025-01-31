@@ -6,7 +6,7 @@ from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Email
 from flask_wtf.csrf import generate_csrf, validate_csrf
 from app.admin import bp
-from app.models import User, Organization, Invitation, SubscriptionPlan, Subscription
+from app.models import User, Organization, Invitation, SubscriptionPlan, Subscription, SubscriptionFeedback
 from app import db
 from datetime import datetime, timedelta
 import uuid
@@ -180,10 +180,16 @@ def change_plan(plan_id):
             return redirect(url_for('admin.manage_organization'))
     
     try:
-        # If there's an existing subscription, mark it as cancelled
+        # If there's an existing subscription, mark it as cancelled and set end date
         if org.current_subscription:
-            org.current_subscription.status = 'cancelled'
-            org.current_subscription.end_date = datetime.utcnow()
+            old_subscription = org.current_subscription
+            old_subscription.status = 'cancelled'
+            old_subscription.end_date = datetime.utcnow()
+            
+            # If switching from paid to free plan, keep the old subscription active until the end of the billing period
+            if old_subscription.status == 'active' and old_subscription.next_billing_date and plan.price == 0:
+                old_subscription.end_date = old_subscription.next_billing_date
+                flash(f'Your previous subscription will remain active until {old_subscription.next_billing_date.strftime("%B %d, %Y")}', 'info')
         
         # Create new subscription
         subscription = Subscription(
@@ -193,6 +199,12 @@ def change_plan(plan_id):
             start_date=datetime.utcnow(),
             next_billing_date=datetime.utcnow() + timedelta(days=30)  # Set next billing date to 30 days from now
         )
+        
+        # If switching from paid to free plan, set the start date to when the old subscription ends
+        if org.current_subscription and org.current_subscription.next_billing_date and plan.price == 0:
+            subscription.start_date = org.current_subscription.next_billing_date
+            subscription.status = 'scheduled'
+        
         db.session.add(subscription)
         
         # Update organization's subscription
@@ -200,7 +212,12 @@ def change_plan(plan_id):
         org.current_subscription_id = subscription.id
         
         db.session.commit()
-        flash(f'Successfully switched to {plan.name} plan.', 'success')
+        
+        if plan.price == 0:
+            flash(f'Successfully switched to {plan.name} plan.', 'success')
+        else:
+            flash(f'Successfully upgraded to {plan.name} plan.', 'success')
+            
     except Exception as e:
         db.session.rollback()
         flash(f'Error changing subscription plan: {str(e)}', 'danger')
@@ -430,11 +447,6 @@ def create_checkout_session():
         success_url = url_for('admin.payment_success', plan_id=plan_id, _external=True)
         cancel_url = url_for('admin.manage_organization', _external=True)
         
-        # For development, replace http with https if needed
-        if current_app.debug:
-            success_url = success_url.replace('http://', 'https://')
-            cancel_url = cancel_url.replace('http://', 'https://')
-        
         checkout_session = stripe_instance.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -529,8 +541,11 @@ def stripe_webhook():
         stripe_instance = get_stripe()
         
         # Verify webhook signature
+        webhook_secret = current_app.config['STRIPE_WEBHOOK_SECRET']
+        print(f"Using webhook secret: {webhook_secret[:6]}...")  # Debug logging (only show first 6 chars)
+        
         event = stripe.Webhook.construct_event(
-            payload, sig_header, current_app.config['STRIPE_WEBHOOK_SECRET']
+            payload, sig_header, webhook_secret
         )
         
         print(f"Webhook event type: {event.type}")  # Debug logging
@@ -552,6 +567,11 @@ def stripe_webhook():
                 
                 if org and plan:
                     print(f"Updating subscription for org {org.name} to plan {plan.name}")  # Debug logging
+                    
+                    # Store the Stripe subscription ID
+                    if hasattr(session, 'subscription'):
+                        org.stripe_subscription_id = session.subscription
+                        print(f"Stored Stripe subscription ID: {session.subscription}")
                     
                     # Update the organization's subscription
                     if org.current_subscription:
@@ -575,55 +595,105 @@ def stripe_webhook():
                     db.session.commit()
                     print("Successfully updated subscription")  # Debug logging
         
+        elif event.type == 'customer.subscription.deleted':
+            subscription = event.data.object
+            print(f"Processing subscription deletion: {subscription.id}")  # Debug logging
+            
+            # Find organization by Stripe subscription ID
+            org = Organization.query.filter_by(stripe_subscription_id=subscription.id).first()
+            if org:
+                print(f"Found organization: {org.name}")  # Debug logging
+                
+                # Mark current subscription as cancelled
+                if org.current_subscription:
+                    org.current_subscription.status = 'cancelled'
+                    org.current_subscription.end_date = datetime.fromtimestamp(subscription.current_period_end)
+                    print(f"Marked subscription as cancelled, ending on {org.current_subscription.end_date}")
+                
+                db.session.commit()
+                print("Successfully processed subscription deletion")
+        
         return jsonify({'status': 'success'}), 200
         
     except Exception as e:
         print(f'Stripe webhook error: {str(e)}')
         return jsonify({'error': str(e)}), 400
 
-@bp.route('/subscription/cancel', methods=['POST'])
+@bp.route('/cancel_subscription')
 @login_required
 @admin_required
 def cancel_subscription():
-    """Cancel the current subscription and revert to free plan at the end of the billing period"""
+    """Show the subscription cancellation confirmation page."""
     org = current_user.organization
     if not org:
-        flash('No organization found.', 'danger')
+        flash('You need to be part of an organization to manage subscriptions.', 'warning')
+        return redirect(url_for('main.index'))
+    
+    if not org.subscription_plan or not org.current_subscription:
+        flash('No active subscription found.', 'warning')
         return redirect(url_for('admin.manage_organization'))
     
+    if org.subscription_plan.price == 0:
+        flash('You cannot cancel a free plan.', 'warning')
+        return redirect(url_for('admin.manage_organization'))
+    
+    return render_template('admin/cancel_subscription.html', 
+                         organization=org)
+
+@bp.route('/process_cancellation', methods=['POST'])
+@login_required
+@admin_required
+def process_cancellation():
+    """Process the subscription cancellation."""
+    org = current_user.organization
+    if not org:
+        flash('You need to be part of an organization to manage subscriptions.', 'warning')
+        return redirect(url_for('main.index'))
+    
+    if not org.subscription_plan or not org.current_subscription:
+        flash('No active subscription found.', 'warning')
+        return redirect(url_for('admin.manage_organization'))
+    
+    # Get the feedback
+    reason = request.form.get('cancellation_reason')
+    comment = request.form.get('feedback_comment', '')
+    
     try:
-        # Get the free plan
-        free_plan = SubscriptionPlan.query.filter_by(name='Free').first()
-        if not free_plan:
-            flash('Unable to cancel subscription: Free plan not found.', 'danger')
-            return redirect(url_for('admin.manage_organization'))
+        # Cancel the subscription in Stripe
+        stripe.api_key = current_app.config['STRIPE_SECRET_KEY']
+        if org.stripe_subscription_id:
+            stripe.Subscription.modify(
+                org.stripe_subscription_id,
+                cancel_at_period_end=True,
+                cancellation_details={
+                    'feedback': reason,
+                    'comment': comment
+                }
+            )
         
-        # Only proceed if on a paid plan
-        if org.subscription_plan and org.subscription_plan.price > 0:
-            # Mark current subscription as cancelled but keep it active until the end of the period
-            if org.current_subscription:
-                org.current_subscription.status = 'cancelled'
-                # The end_date will be set when the subscription actually ends
-                
-                # Create a pending free subscription
-                next_subscription = Subscription(
-                    organization_id=org.id,
-                    plan_id=free_plan.id,
-                    status='pending',
-                    start_date=org.current_subscription.next_billing_date,  # Start when current subscription ends
-                    next_billing_date=None  # Free plan has no billing
-                )
-                db.session.add(next_subscription)
-                
-                # Note: The organization's subscription_plan_id will be updated when the subscription actually ends
-                
-                db.session.commit()
-                flash('Your subscription has been cancelled. You will be moved to the Free plan at the end of your current billing period.', 'info')
-            else:
-                flash('No active subscription found.', 'warning')
-        else:
-            flash('No paid subscription to cancel.', 'warning')
-            
+        # Update our database
+        subscription = org.current_subscription
+        subscription.status = 'cancelled'
+        subscription.end_date = subscription.next_billing_date
+        
+        # Get the free plan
+        free_plan = SubscriptionPlan.query.filter_by(price=0).first()
+        if not free_plan:
+            raise Exception('Free plan not found in the database')
+        
+        # Create a new subscription for the free plan that will start when the current one ends
+        new_subscription = Subscription(
+            organization_id=org.id,
+            plan_id=free_plan.id,
+            status='scheduled',
+            start_date=subscription.next_billing_date,
+            next_billing_date=subscription.next_billing_date + timedelta(days=30)
+        )
+        
+        db.session.add(new_subscription)
+        db.session.commit()
+        
+        flash('Your subscription has been cancelled. It will remain active until the end of the current billing period.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error cancelling subscription: {str(e)}', 'danger')

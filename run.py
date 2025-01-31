@@ -9,7 +9,8 @@ try:
     app = create_app()
     
     if __name__ == '__main__':
-        app.run(debug=True)
+        # Run the app without SSL for local development
+        app.run(debug=True, host='127.0.0.1', port=5000)
 except Exception as e:
     print(f"Error starting the application: {str(e)}")
     sys.exit(1) 
