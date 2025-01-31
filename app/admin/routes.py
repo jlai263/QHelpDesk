@@ -579,4 +579,53 @@ def stripe_webhook():
         
     except Exception as e:
         print(f'Stripe webhook error: {str(e)}')
-        return jsonify({'error': str(e)}), 400 
+        return jsonify({'error': str(e)}), 400
+
+@bp.route('/subscription/cancel', methods=['POST'])
+@login_required
+@admin_required
+def cancel_subscription():
+    """Cancel the current subscription and revert to free plan at the end of the billing period"""
+    org = current_user.organization
+    if not org:
+        flash('No organization found.', 'danger')
+        return redirect(url_for('admin.manage_organization'))
+    
+    try:
+        # Get the free plan
+        free_plan = SubscriptionPlan.query.filter_by(name='Free').first()
+        if not free_plan:
+            flash('Unable to cancel subscription: Free plan not found.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+        
+        # Only proceed if on a paid plan
+        if org.subscription_plan and org.subscription_plan.price > 0:
+            # Mark current subscription as cancelled but keep it active until the end of the period
+            if org.current_subscription:
+                org.current_subscription.status = 'cancelled'
+                # The end_date will be set when the subscription actually ends
+                
+                # Create a pending free subscription
+                next_subscription = Subscription(
+                    organization_id=org.id,
+                    plan_id=free_plan.id,
+                    status='pending',
+                    start_date=org.current_subscription.next_billing_date,  # Start when current subscription ends
+                    next_billing_date=None  # Free plan has no billing
+                )
+                db.session.add(next_subscription)
+                
+                # Note: The organization's subscription_plan_id will be updated when the subscription actually ends
+                
+                db.session.commit()
+                flash('Your subscription has been cancelled. You will be moved to the Free plan at the end of your current billing period.', 'info')
+            else:
+                flash('No active subscription found.', 'warning')
+        else:
+            flash('No paid subscription to cancel.', 'warning')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error cancelling subscription: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.manage_organization')) 
