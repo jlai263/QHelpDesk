@@ -803,6 +803,7 @@ def reactivate_subscription():
 
         # Reactivate the subscription
         org.current_subscription.status = 'active'
+        org.current_subscription.end_date = None  # Clear the end date
         db.session.commit()
 
         flash('Your subscription has been successfully reactivated!', 'success')

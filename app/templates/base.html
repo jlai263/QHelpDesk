@@ -10,12 +10,201 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <style>
-/* Prevent text selection */
+/* Base layout */
+html {
+    height: 100%;
+    scroll-behavior: auto;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    padding-top: 60px; /* Fixed navbar height */
+    background-color: #f5f5f5;
+    overflow-x: hidden;
+}
+
+/* Navbar styles */
+.navbar-custom {
+    background-color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: 60px;
+    margin: 0;
+    padding: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+}
+
+.navbar-header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-brand {
+    padding: 0 15px;
+    height: 60px;
+    line-height: 60px;
+    color: #0061f2;
+    font-size: 24px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-nav {
+    margin: 0;
+    padding: 0;
+    float: left;
+    height: 60px;
+}
+
+.navbar-nav > li {
+    float: left;
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
 .navbar-nav > li > a {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+    padding: 0 15px;
+    line-height: 60px;
+    height: 60px;
+    color: #2c3e50;
+    font-weight: 500;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.navbar-nav > li > a i {
+    margin-right: 8px;
+}
+
+/* Navbar link underline effect */
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle) {
+    position: relative;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background-color: #0061f2;
+    transition: width 0.3s ease;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):hover {
+    color: #0061f2;
+}
+
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle):hover:after {
+    width: calc(100% - 30px);
+}
+
+/* Active state */
+.navbar-nav > li.active > a:not(.btn-signup):not(.dropdown-toggle),
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle).active {
+    color: #0061f2;
+}
+
+.navbar-nav > li.active > a:not(.btn-signup):not(.dropdown-toggle):after,
+.navbar-nav > li > a:not(.btn-signup):not(.dropdown-toggle).active:after {
+    width: calc(100% - 30px);
+}
+
+.navbar-right {
+    float: right;
+    margin: 0;
+}
+
+.navbar-collapse {
+    padding: 0;
+    border: none;
+}
+
+/* Sign up button */
+.btn-signup {
+    background-color: #0061f2;
+    color: #ffffff;
+    border: 1px solid #0061f2;
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-weight: 500;
+    margin: 10px 0;
+    height: 40px;
+    line-height: 24px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.btn-signup:hover {
+    background-color: #ffffff;
+    color: #0061f2;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .navbar-nav {
+        margin: 0 -15px;
+        float: none;
+    }
+    
+    .navbar-nav > li {
+        float: none;
+    }
+    
+    .navbar-right {
+        float: none;
+        margin: 0 -15px;
+    }
+    
+    .btn-signup {
+        margin: 10px 15px;
+    }
+    
+    .navbar-collapse {
+        padding: 0 15px;
+    }
+}
+
+/* Dropdown menu */
+.dropdown-menu > li > a {
+    display: flex;
+    align-items: center;
+    padding: 8px 20px;
+}
+
+.dropdown-menu > li > a i {
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
+}
+
+/* Prevent text selection and scroll jumping */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    min-height: 100vh;
+    position: relative;
+    background-color: #f5f5f5;
+    padding-top: 60px;
+    padding-bottom: 20px;
 }
 
 .navbar-custom {
@@ -26,6 +215,11 @@
     height: 60px;
     margin-bottom: 0;
     padding: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
 }
 
 .navbar-header {
@@ -383,7 +577,7 @@
                 {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('main.help') }}"><i class="fas fa-life-ring"></i> Help</a></li>
                 <li class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                    <a href="javascript:void(0)" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-user"></i> {{ current_user.username }} <span class="caret"></span>
                     </a>
                     <ul class="dropdown-menu">
@@ -404,7 +598,7 @@
 {% endblock %}
 
 {% block content %}
-    <div class="container {% if request.endpoint != 'main.help' %}mt-80{% endif %}">
+    <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -437,44 +631,64 @@
             });
         }, 5000);
 
-        // Smooth scrolling for anchor links
-        $('a[href*="#"]').not('[href="#"]').not('[href="#0"]').click(function(event) {
-            if (
-                location.pathname.replace(/^\//, '') == this.pathname.replace(/^\//, '') 
-                && 
-                location.hostname == this.hostname
-            ) {
-                var target = $(this.hash);
-                target = target.length ? target : $('[name=' + this.hash.slice(1) + ']');
-                
-                if (target.length) {
-                    event.preventDefault();
-                    $('html, body').animate({
-                        scrollTop: target.offset().top - 80
-                    }, 800);
-                    
-                    if (history.pushState) {
-                        history.pushState(null, null, target.selector);
-                    } else {
-                        location.hash = target.selector;
-                    }
-                }
-            }
-        });
-
-        // Highlight active section in navbar
-        $(window).scroll(function() {
-            var scrollDistance = $(window).scrollTop() + 100;
+        // Handle scroll behavior based on page type
+        if (location.pathname === '/' || location.pathname === '/index') {
+            // Enable smooth scrolling only for landing page
+            $('html').css('scroll-behavior', 'smooth');
             
-            if (location.pathname === '/' || location.pathname === '/index') {
+            // Handle anchor links on landing page
+            $('a[href*="#"]')
+                .not('[data-toggle]')
+                .not('.dropdown-toggle')
+                .click(function(event) {
+                    var href = $(this).attr('href');
+                    if (href === '#' || href === '#0' || href === 'javascript:void(0)') {
+                        event.preventDefault();
+                        return false;
+                    }
+                    
+                    if (location.pathname.replace(/^\//, '') == this.pathname.replace(/^\//, '') && 
+                        location.hostname == this.hostname) {
+                        var target = $(this.hash);
+                        target = target.length ? target : $('[name=' + this.hash.slice(1) + ']');
+                        
+                        if (target.length) {
+                            event.preventDefault();
+                            $('html, body').animate({
+                                scrollTop: target.offset().top - 60 // Match navbar height
+                            }, 800);
+                        }
+                    }
+                });
+
+            // Highlight active section in navbar
+            $(window).scroll(function() {
+                var scrollDistance = $(window).scrollTop() + 60; // Match navbar height
                 $('section').each(function(i) {
                     if ($(this).position().top <= scrollDistance) {
                         $('.navbar-nav a.nav-section.active').removeClass('active');
                         $('.navbar-nav a.nav-section').eq(i).addClass('active');
                     }
                 });
+            }).scroll();
+        } else {
+            // Disable smooth scrolling for non-landing pages
+            $('html').css('scroll-behavior', 'auto');
+            
+            // Prevent browser's automatic scroll restoration
+            if ('scrollRestoration' in history) {
+                history.scrollRestoration = 'manual';
             }
-        }).scroll();
+
+            // Maintain scroll position during navigation
+            var lastScrollPosition = sessionStorage.getItem('lastScrollPosition') || 0;
+            $(window).scrollTop(lastScrollPosition);
+
+            // Save scroll position before navigation
+            $(window).on('beforeunload', function() {
+                sessionStorage.setItem('lastScrollPosition', $(window).scrollTop());
+            });
+        }
     });
 </script>
 {% block page_scripts %}{% endblock %}
