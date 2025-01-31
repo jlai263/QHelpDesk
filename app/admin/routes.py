@@ -4,6 +4,7 @@ from functools import wraps
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Email
+from flask_wtf.csrf import generate_csrf, validate_csrf
 from app.admin import bp
 from app.models import User, Organization, Invitation, SubscriptionPlan, Subscription
 from app import db
@@ -153,7 +154,7 @@ def manage_organization():
                          stripe_public_key=current_app.config['STRIPE_PUBLIC_KEY'],
                          form=form)
 
-@bp.route('/change_plan/<int:plan_id>', methods=['POST'])
+@bp.route('/change_plan/<int:plan_id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def change_plan(plan_id):
@@ -168,6 +169,13 @@ def change_plan(plan_id):
     if org.active_users_count > plan.team_size_limit:
         flash(f'Cannot downgrade to {plan.name} plan. You have {org.active_users_count} active users, but the plan only allows {plan.team_size_limit}.', 'danger')
         return redirect(url_for('admin.manage_organization'))
+    
+    # For GET requests (coming from payment success), verify CSRF token from query param
+    if request.method == 'GET':
+        token = request.args.get('csrf_token')
+        if not token or not validate_csrf(token):
+            flash('Invalid request.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
     
     try:
         # If there's an existing subscription, mark it as cancelled
@@ -467,8 +475,9 @@ def payment_success():
         return redirect(url_for('admin.manage_organization'))
     
     try:
-        # Process the successful payment
-        return redirect(url_for('admin.change_plan', plan_id=plan_id))
+        # Process the successful payment by redirecting to change_plan with CSRF token
+        csrf_token = generate_csrf()
+        return redirect(url_for('admin.change_plan', plan_id=plan_id, csrf_token=csrf_token))
     except Exception as e:
         flash(f'Error processing payment: {str(e)}', 'danger')
         return redirect(url_for('admin.manage_organization')) 
