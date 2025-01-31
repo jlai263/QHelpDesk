@@ -516,12 +516,15 @@ def payment_success():
     return redirect(url_for('admin.manage_organization'))
 
 @bp.route('/webhook', methods=['POST'])
+@bp.route('/admin/webhook', methods=['POST'])
 def stripe_webhook():
     """Handle Stripe webhook events"""
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     
     try:
+        print("Received webhook event")  # Debug logging
+        
         # Initialize Stripe with the current secret key
         stripe_instance = get_stripe()
         
@@ -530,19 +533,26 @@ def stripe_webhook():
             payload, sig_header, current_app.config['STRIPE_WEBHOOK_SECRET']
         )
         
+        print(f"Webhook event type: {event.type}")  # Debug logging
+        
         # Handle the event
         if event.type == 'checkout.session.completed':
             session = event.data.object
+            print(f"Processing completed checkout session: {session.id}")  # Debug logging
             
             # Get the organization and plan IDs from metadata
             org_id = session.metadata.get('organization_id')
             plan_id = session.metadata.get('plan_id')
+            
+            print(f"Organization ID: {org_id}, Plan ID: {plan_id}")  # Debug logging
             
             if org_id and plan_id:
                 org = Organization.query.get(org_id)
                 plan = SubscriptionPlan.query.get(plan_id)
                 
                 if org and plan:
+                    print(f"Updating subscription for org {org.name} to plan {plan.name}")  # Debug logging
+                    
                     # Update the organization's subscription
                     if org.current_subscription:
                         org.current_subscription.status = 'cancelled'
@@ -563,6 +573,7 @@ def stripe_webhook():
                     org.current_subscription_id = subscription.id
                     
                     db.session.commit()
+                    print("Successfully updated subscription")  # Debug logging
         
         return jsonify({'status': 'success'}), 200
         
