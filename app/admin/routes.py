@@ -4,7 +4,7 @@ from functools import wraps
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Email
-from flask_wtf.csrf import generate_csrf, validate_csrf
+from flask_wtf.csrf import generate_csrf, validate_csrf, csrf_exempt
 from app.admin import bp
 from app.models import User, Organization, Invitation, SubscriptionPlan, Subscription, SubscriptionFeedback
 from app import db
@@ -528,50 +528,50 @@ def payment_success():
     return redirect(url_for('admin.manage_organization'))
 
 @bp.route('/webhook', methods=['POST'])
-@bp.route('/admin/webhook', methods=['POST'])
+@csrf_exempt
 def stripe_webhook():
     """Handle Stripe webhook events"""
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     
     try:
-        print("Received webhook event")  # Debug logging
+        current_app.logger.info("Received webhook event")
         
         # Initialize Stripe with the current secret key
         stripe_instance = get_stripe()
         
         # Verify webhook signature
         webhook_secret = current_app.config['STRIPE_WEBHOOK_SECRET']
-        print(f"Using webhook secret: {webhook_secret[:6]}...")  # Debug logging (only show first 6 chars)
+        current_app.logger.info(f"Using webhook secret: {webhook_secret[:6]}...")
         
         event = stripe.Webhook.construct_event(
             payload, sig_header, webhook_secret
         )
         
-        print(f"Webhook event type: {event.type}")  # Debug logging
+        current_app.logger.info(f"Webhook event type: {event.type}")
         
         # Handle the event
         if event.type == 'checkout.session.completed':
             session = event.data.object
-            print(f"Processing completed checkout session: {session.id}")  # Debug logging
+            current_app.logger.info(f"Processing completed checkout session: {session.id}")
             
             # Get the organization and plan IDs from metadata
             org_id = session.metadata.get('organization_id')
             plan_id = session.metadata.get('plan_id')
             
-            print(f"Organization ID: {org_id}, Plan ID: {plan_id}")  # Debug logging
+            current_app.logger.info(f"Organization ID: {org_id}, Plan ID: {plan_id}")
             
             if org_id and plan_id:
                 org = Organization.query.get(org_id)
                 plan = SubscriptionPlan.query.get(plan_id)
                 
                 if org and plan:
-                    print(f"Updating subscription for org {org.name} to plan {plan.name}")  # Debug logging
+                    current_app.logger.info(f"Updating subscription for org {org.name} to plan {plan.name}")
                     
                     # Store the Stripe subscription ID
                     if hasattr(session, 'subscription'):
                         org.stripe_subscription_id = session.subscription
-                        print(f"Stored Stripe subscription ID: {session.subscription}")
+                        current_app.logger.info(f"Stored Stripe subscription ID: {session.subscription}")
                     
                     # Update the organization's subscription
                     if org.current_subscription:
@@ -593,30 +593,30 @@ def stripe_webhook():
                     org.current_subscription_id = subscription.id
                     
                     db.session.commit()
-                    print("Successfully updated subscription")  # Debug logging
+                    current_app.logger.info("Successfully updated subscription")
         
         elif event.type == 'customer.subscription.deleted':
             subscription = event.data.object
-            print(f"Processing subscription deletion: {subscription.id}")  # Debug logging
+            current_app.logger.info(f"Processing subscription deletion: {subscription.id}")
             
             # Find organization by Stripe subscription ID
             org = Organization.query.filter_by(stripe_subscription_id=subscription.id).first()
             if org:
-                print(f"Found organization: {org.name}")  # Debug logging
+                current_app.logger.info(f"Found organization: {org.name}")
                 
                 # Mark current subscription as cancelled
                 if org.current_subscription:
                     org.current_subscription.status = 'cancelled'
                     org.current_subscription.end_date = datetime.fromtimestamp(subscription.current_period_end)
-                    print(f"Marked subscription as cancelled, ending on {org.current_subscription.end_date}")
+                    current_app.logger.info(f"Marked subscription as cancelled, ending on {org.current_subscription.end_date}")
                 
                 db.session.commit()
-                print("Successfully processed subscription deletion")
+                current_app.logger.info("Successfully processed subscription deletion")
         
         return jsonify({'status': 'success'}), 200
         
     except Exception as e:
-        print(f'Stripe webhook error: {str(e)}')
+        current_app.logger.error(f'Stripe webhook error: {str(e)}')
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/cancel_subscription', methods=['POST'])
