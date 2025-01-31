@@ -13,7 +13,6 @@ class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), index=True)
     domain = db.Column(db.String(120), index=True, unique=True)
-    stripe_subscription_id = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     subscription_plan_id = db.Column(db.Integer, db.ForeignKey('subscription_plans.id', name='fk_org_subscription_plan'))
     current_subscription_id = db.Column(db.Integer, db.ForeignKey('subscriptions.id', name='fk_org_current_subscription'))

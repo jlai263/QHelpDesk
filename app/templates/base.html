@@ -430,9 +430,9 @@
         $('[data-toggle="dropdown"]').dropdown();
         $('[data-toggle="modal"]').modal();
         
-        // Close alert messages after 5 seconds
+        // Close alert messages after 5 seconds, except subscription alerts
         window.setTimeout(function() {
-            $(".alert").fadeTo(500, 0).slideUp(500, function(){
+            $(".alert").not(".subscription-end-alert, .subscription-cancelled-alert").fadeTo(500, 0).slideUp(500, function(){
                 $(this).remove(); 
             });
         }, 5000);

@@ -30,31 +30,24 @@ def create_app(config_class=Config):
     print(f"MAIL_PASSWORD: {app.config.get('MAIL_PASSWORD')}")  # Be careful with this in production
     print(f"MAIL_DEFAULT_SENDER: {app.config.get('MAIL_DEFAULT_SENDER')}")
 
-    # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
     mail.init_app(app)
     bootstrap.init_app(app)
-    
-    # Initialize CSRF protection but don't exempt routes yet
     csrf.init_app(app)
 
-    # Register blueprints
-    from app.auth import bp as auth_bp
-    from app.admin import bp as admin_bp
     from app.main import bp as main_bp
-
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(main_bp)
 
-    # Now that blueprints are registered, exempt webhook routes from CSRF protection
-    with app.app_context():
-        if 'stripe_webhook' in main_bp.view_functions:
-            csrf.exempt(main_bp.view_functions['stripe_webhook'])
-        if 'webhook' in admin_bp.view_functions:
-            csrf.exempt(admin_bp.view_functions['webhook'])
+    from app.auth import bp as auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    from app.admin import bp as admin_bp
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    from app.tickets import bp as tickets_bp
+    app.register_blueprint(tickets_bp, url_prefix='/tickets')
 
     return app
 
