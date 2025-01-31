@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install -r requirements.txt && flask db upgrade"
+buildCommand = "pip install -r requirements.txt && flask db upgrade && python create_plans.py"
 
 [deploy]
 startCommand = "gunicorn run:app"
