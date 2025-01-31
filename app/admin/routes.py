@@ -4,7 +4,7 @@ from functools import wraps
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired, Email
-from flask_wtf.csrf import generate_csrf, validate_csrf, csrf_exempt
+from flask_wtf.csrf import generate_csrf, validate_csrf
 from app.admin import bp
 from app.models import User, Organization, Invitation, SubscriptionPlan, Subscription, SubscriptionFeedback
 from app import db
@@ -528,9 +528,12 @@ def payment_success():
     return redirect(url_for('admin.manage_organization'))
 
 @bp.route('/webhook', methods=['POST'])
-@csrf_exempt
 def stripe_webhook():
     """Handle Stripe webhook events"""
+    # Disable CSRF for this route
+    view_func = stripe_webhook.__get__(bp, bp.__class__)
+    view_func.is_exempt = True
+    
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     

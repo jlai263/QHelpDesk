@@ -1,6 +1,5 @@
 from flask import Blueprint, render_template, flash, redirect, url_for, request, current_app
 from flask_login import login_required, current_user
-from flask_wtf.csrf import csrf_exempt
 from app.models import Organization, Subscription
 from app import db
 import stripe
@@ -10,8 +9,12 @@ from datetime import datetime
 bp = Blueprint('main', __name__)
 
 @bp.route('/admin/webhook', methods=['POST'])
-@csrf_exempt
 def stripe_webhook():
+    """Handle Stripe webhook events"""
+    # Disable CSRF for this route
+    view_func = stripe_webhook.__get__(bp, bp.__class__)
+    view_func.is_exempt = True
+    
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     

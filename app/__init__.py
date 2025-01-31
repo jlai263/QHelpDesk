@@ -37,17 +37,20 @@ def create_app(config_class=Config):
     bootstrap.init_app(app)
     csrf.init_app(app)
 
-    from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
-
+    # Register blueprints
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
-    from app.tickets import bp as tickets_bp
-    app.register_blueprint(tickets_bp, url_prefix='/tickets')
+    from app.main import bp as main_bp
+    app.register_blueprint(main_bp)
+
+    # Exempt webhook routes from CSRF protection
+    csrf.exempt(main_bp.view_functions['stripe_webhook'])
+    csrf.exempt(admin_bp.view_functions['webhook'])
+    csrf.exempt(admin_bp.view_functions['admin_webhook'])
 
     return app
 
