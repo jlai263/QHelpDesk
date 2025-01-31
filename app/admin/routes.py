@@ -480,4 +480,59 @@ def payment_success():
         return redirect(url_for('admin.change_plan', plan_id=plan_id, csrf_token=csrf_token))
     except Exception as e:
         flash(f'Error processing payment: {str(e)}', 'danger')
-        return redirect(url_for('admin.manage_organization')) 
+        return redirect(url_for('admin.manage_organization'))
+
+@bp.route('/webhook', methods=['POST'])
+def stripe_webhook():
+    """Handle Stripe webhook events"""
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
+    
+    try:
+        # Initialize Stripe with the current secret key
+        stripe_instance = get_stripe()
+        
+        # Verify webhook signature
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, current_app.config['STRIPE_WEBHOOK_SECRET']
+        )
+        
+        # Handle the event
+        if event.type == 'checkout.session.completed':
+            session = event.data.object
+            
+            # Get the organization and plan IDs from metadata
+            org_id = session.metadata.get('organization_id')
+            plan_id = session.metadata.get('plan_id')
+            
+            if org_id and plan_id:
+                org = Organization.query.get(org_id)
+                plan = SubscriptionPlan.query.get(plan_id)
+                
+                if org and plan:
+                    # Update the organization's subscription
+                    if org.current_subscription:
+                        org.current_subscription.status = 'cancelled'
+                        org.current_subscription.end_date = datetime.utcnow()
+                    
+                    # Create new subscription
+                    subscription = Subscription(
+                        organization_id=org.id,
+                        plan_id=plan.id,
+                        status='active',
+                        start_date=datetime.utcnow(),
+                        next_billing_date=datetime.utcnow() + timedelta(days=30)
+                    )
+                    db.session.add(subscription)
+                    
+                    # Update organization's subscription
+                    org.subscription_plan_id = plan.id
+                    org.current_subscription_id = subscription.id
+                    
+                    db.session.commit()
+        
+        return jsonify({'status': 'success'}), 200
+        
+    except Exception as e:
+        print(f'Stripe webhook error: {str(e)}')
+        return jsonify({'error': str(e)}), 400 
