@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, flash, redirect, url_for, request, current_app
+from flask import Blueprint, render_template, flash, redirect, url_for, request, current_app, jsonify
 from flask_login import login_required, current_user
 from app.models import Organization, Subscription
 from app import db
@@ -8,13 +8,9 @@ from datetime import datetime
 
 bp = Blueprint('main', __name__)
 
-@bp.route('/admin/webhook', methods=['POST'], endpoint='stripe_webhook')
+@bp.route('/webhook', methods=['POST'], endpoint='stripe_webhook')
 def stripe_webhook():
     """Handle Stripe webhook events"""
-    # Disable CSRF for this route
-    view_func = stripe_webhook.__get__(bp, bp.__class__)
-    view_func.is_exempt = True
-    
     payload = request.get_data()
     sig_header = request.headers.get('Stripe-Signature')
     
@@ -25,10 +21,10 @@ def stripe_webhook():
         logging.debug(f"Received Stripe webhook event: {event.type}")
     except ValueError as e:
         logging.error(f"Invalid payload: {str(e)}")
-        return 'Invalid payload', 400
+        return jsonify({'error': 'Invalid payload'}), 400
     except stripe.error.SignatureVerificationError as e:
         logging.error(f"Invalid signature: {str(e)}")
-        return 'Invalid signature', 400
+        return jsonify({'error': 'Invalid signature'}), 400
 
     if event.type == 'customer.subscription.updated':
         subscription = event.data.object
@@ -49,4 +45,4 @@ def stripe_webhook():
                 db.session.commit()
                 logging.info(f"Updated subscription end date for organization {org.id}")
 
-    return '', 200 
+    return jsonify({'status': 'success'}), 200 
