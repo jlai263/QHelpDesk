@@ -13,7 +13,8 @@
 /* Base layout */
 html {
     height: 100%;
-    scroll-behavior: auto;
+    scroll-behavior: auto !important;
+    overflow-y: scroll;
 }
 
 body {
@@ -23,6 +24,26 @@ body {
     padding-top: 60px; /* Fixed navbar height */
     background-color: #f5f5f5;
     overflow-x: hidden;
+    padding-right: 0 !important;
+}
+
+/* Modal fixes */
+body.modal-open {
+    overflow: hidden;
+    padding-right: 0 !important;
+    position: fixed;
+    width: 100%;
+}
+
+.modal {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-open .modal {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 0 !important;
 }
 
 /* Navbar styles */
@@ -622,7 +643,26 @@ body {
     $(document).ready(function() {
         // Initialize Bootstrap components
         $('[data-toggle="dropdown"]').dropdown();
-        $('[data-toggle="modal"]').modal();
+        
+        // Prevent modal from causing page jumps
+        $('[data-toggle="modal"]').on('click', function(e) {
+            e.preventDefault();
+            var targetModal = $($(this).data('target'));
+            
+            // Store current scroll position
+            var scrollPosition = window.pageYOffset;
+            
+            // Open modal
+            targetModal.modal({
+                backdrop: 'static',
+                keyboard: false
+            });
+            
+            // Restore scroll position
+            setTimeout(function() {
+                $(window).scrollTop(scrollPosition);
+            }, 0);
+        });
         
         // Close alert messages after 5 seconds, except subscription alerts
         window.setTimeout(function() {
@@ -675,18 +715,20 @@ body {
             // Disable smooth scrolling for non-landing pages
             $('html').css('scroll-behavior', 'auto');
             
-            // Prevent browser's automatic scroll restoration
+            // Disable browser's automatic scroll restoration
             if ('scrollRestoration' in history) {
                 history.scrollRestoration = 'manual';
             }
 
-            // Maintain scroll position during navigation
-            var lastScrollPosition = sessionStorage.getItem('lastScrollPosition') || 0;
-            $(window).scrollTop(lastScrollPosition);
-
-            // Save scroll position before navigation
-            $(window).on('beforeunload', function() {
-                sessionStorage.setItem('lastScrollPosition', $(window).scrollTop());
+            // Prevent scroll position changes during modal interactions
+            var modalScrollPosition;
+            
+            $(document).on('show.bs.modal', '.modal', function() {
+                modalScrollPosition = window.pageYOffset;
+            });
+            
+            $(document).on('hidden.bs.modal', '.modal', function() {
+                window.scrollTo(0, modalScrollPosition);
             });
         }
     });

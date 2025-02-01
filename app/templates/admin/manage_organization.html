@@ -357,6 +357,61 @@ body.modal-open {
     padding-right: 0 !important;
     overflow-y: scroll !important;
 }
+
+/* Prevent scroll jumping */
+body {
+    padding-right: 0 !important;
+}
+
+body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+.modal {
+    overflow-y: auto !important;
+}
+
+.modal-open .modal {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-right: 0 !important;
+}
+
+.modal-backdrop {
+    position: fixed;
+}
+
+/* Keep content from shifting */
+.modal-content {
+    margin: 30px auto;
+}
+
+/* Prevent button jumping */
+.subscribe-button,
+.reactivate-subscription-btn,
+#cancelSubscriptionBtn {
+    position: relative;
+    z-index: 1;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Remove forced visibility styles */
+.modal.in ~ .panel .reactivate-subscription-btn,
+.modal.show ~ .panel .reactivate-subscription-btn,
+.modal.fade ~ .panel .reactivate-subscription-btn,
+.modal-open .reactivate-subscription-btn,
+.modal.in ~ .panel #cancelSubscriptionBtn,
+.modal.show ~ .panel #cancelSubscriptionBtn,
+.modal.fade ~ .panel #cancelSubscriptionBtn,
+.modal-open #cancelSubscriptionBtn {
+    display: inline-block;
+    opacity: 1;
+    visibility: visible;
+}
 </style>
 {% endblock %}
 
@@ -829,19 +884,128 @@ $(document).ready(function() {
         stripe = Stripe('{{ stripe_public_key }}');
     }
 
-    // Handle subscription button clicks without page jump
-    $('.subscribe-button').on('click', function(e) {
+    // Remove any autofocus attributes that might exist
+    $('[autofocus]').removeAttr('autofocus');
+
+    // Function to safely focus an element without scrolling
+    function focusWithoutScroll(element) {
+        if (element && typeof element.focus === 'function') {
+            // Try modern approach first
+            try {
+                element.focus({ preventScroll: true });
+            } catch (e) {
+                // Fallback for older browsers
+                const scrollPosition = window.pageYOffset;
+                element.focus();
+                window.scrollTo(0, scrollPosition);
+            }
+        }
+    }
+
+    // Prevent button focus scrolling
+    const noScrollButtons = [
+        '.subscribe-button',
+        '.reactivate-subscription-btn',
+        '#cancelSubscriptionBtn',
+        '.invite-member-btn',
+        '[data-toggle="modal"]',
+        '.modal .btn',
+        'button[type="submit"]'
+    ];
+
+    // Store the last scroll position
+    let lastScrollPosition = 0;
+
+    // Add click handler for all modal-related buttons
+    $(noScrollButtons.join(', ')).on('mousedown', function(e) {
+        // Store scroll position before click
+        lastScrollPosition = window.pageYOffset;
+    }).on('click', function(e) {
+        const button = this;
+        
+        // Prevent default focus behavior
         e.preventDefault();
         e.stopPropagation();
-        // Your existing subscription handling code here
+
+        // Execute the button's action after preventing scroll
+        setTimeout(() => {
+            // Restore scroll position
+            window.scrollTo(0, lastScrollPosition);
+            
+            // Focus without scrolling if needed
+            focusWithoutScroll(button);
+            
+            // Remove focus after a brief moment
+            setTimeout(() => button.blur(), 10);
+        }, 0);
     });
 
-    // Prevent any form submissions from jumping
-    $('form').on('submit', function(e) {
+    // Modal handling
+    $('.modal').on('show.bs.modal', function(e) {
+        lastScrollPosition = window.pageYOffset;
+        $('body').addClass('modal-open');
+        
+        // Prevent trigger button from causing scroll
+        if (e.relatedTarget) {
+            e.relatedTarget.blur();
+            focusWithoutScroll(e.relatedTarget);
+        }
+    });
+
+    $('.modal').on('shown.bs.modal', function() {
+        window.scrollTo(0, lastScrollPosition);
+        // Focus the first interactive element in modal without scrolling
+        const firstInput = $(this).find('input:visible, button:visible').first();
+        if (firstInput.length) {
+            focusWithoutScroll(firstInput[0]);
+        }
+    });
+
+    $('.modal').on('hidden.bs.modal', function() {
+        $('body').removeClass('modal-open');
+        window.scrollTo(0, lastScrollPosition);
+    });
+
+    // Handle subscription button clicks
+    $('.subscribe-button').on('click', function(e) {
+        const button = this;
         e.preventDefault();
-        const form = $(this);
-        // Submit the form using AJAX or process normally based on your needs
-        form.submit();
+        e.stopPropagation();
+        
+        // Store position before any action
+        const currentScroll = window.pageYOffset;
+        
+        // Execute subscription logic here
+        // ...
+        
+        // Restore position and handle focus
+        window.scrollTo(0, currentScroll);
+        focusWithoutScroll(button);
+        setTimeout(() => button.blur(), 10);
+    });
+
+    // Prevent form submissions from causing scroll jumps
+    $('form').on('submit', function(e) {
+        if (!$(this).hasClass('no-prevent')) {
+            e.preventDefault();
+            const form = $(this);
+            const submitButton = form.find('button[type="submit"]');
+            
+            // Store position
+            const currentScroll = window.pageYOffset;
+            
+            // Handle submit button focus
+            if (submitButton.length) {
+                submitButton.blur();
+                focusWithoutScroll(submitButton[0]);
+            }
+            
+            // Submit form and restore position
+            setTimeout(() => {
+                form.submit();
+                window.scrollTo(0, currentScroll);
+            }, 0);
+        }
     });
 
     // Handle reactivate subscription confirmation
