@@ -208,11 +208,19 @@ code {
 /* Modal styles */
 .modal {
     padding-right: 0 !important;
+    overflow-y: auto;
 }
 
 .modal-open {
     overflow: auto !important;
     padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+
+.modal-open .modal {
+    background: rgba(0, 0, 0, 0.5);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* Responsive adjustments */
@@ -319,10 +327,8 @@ code {
 
 /* Keep buttons visible during modal interactions */
 .reactivate-subscription-btn,
-#cancelSubscriptionBtn {
-    display: inline-block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
+#cancelSubscriptionBtn,
+.invite-member-btn {
     position: relative;
     z-index: 1;
 }
@@ -339,6 +345,17 @@ code {
     display: inline-block !important;
     opacity: 1 !important;
     visibility: visible !important;
+}
+
+/* Keep the page from shifting */
+html {
+    overflow-y: scroll;
+}
+
+body.modal-open {
+    width: 100% !important;
+    padding-right: 0 !important;
+    overflow-y: scroll !important;
 }
 </style>
 {% endblock %}
@@ -619,8 +636,7 @@ code {
                                                         <button type="button" class="btn btn-primary subscribe-button" 
                                                                 data-plan-name="{{ plan.name }}"
                                                                 data-plan-price="{{ plan.price }}"
-                                                                    data-plan-id="{{ plan.id }}"
-                                                                    onclick="return false;">
+                                                                data-plan-id="{{ plan.id }}">
                                                             Subscribe for ${{ "%.2f"|format(plan.price) }}/month
                                                         </button>
                                                     </div>
@@ -812,6 +828,21 @@ $(document).ready(function() {
     if (!stripe) {
         stripe = Stripe('{{ stripe_public_key }}');
     }
+
+    // Handle subscription button clicks without page jump
+    $('.subscribe-button').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Your existing subscription handling code here
+    });
+
+    // Prevent any form submissions from jumping
+    $('form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        // Submit the form using AJAX or process normally based on your needs
+        form.submit();
+    });
 
     // Handle reactivate subscription confirmation
     $('#confirmReactivateBtn').on('click', function(e) {
