@@ -968,20 +968,59 @@ $(document).ready(function() {
 
     // Handle subscription button clicks
     $('.subscribe-button').on('click', function(e) {
-        const button = this;
+        const button = $(this);
         e.preventDefault();
         e.stopPropagation();
         
         // Store position before any action
         const currentScroll = window.pageYOffset;
         
-        // Execute subscription logic here
-        // ...
+        // Disable button and show loading state
+        button.prop('disabled', true)
+              .html('<i class="fas fa-spinner fa-spin"></i> Processing...');
         
-        // Restore position and handle focus
-        window.scrollTo(0, currentScroll);
-        focusWithoutScroll(button);
-        setTimeout(() => button.blur(), 10);
+        // Get plan details from data attributes
+        const planData = {
+            planName: button.data('plan-name'),
+            planPrice: button.data('plan-price'),
+            planId: button.data('plan-id')
+        };
+        
+        // Create Stripe checkout session
+        fetch("{{ url_for('admin.create_checkout_session') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': $('input[name="csrf_token"]').val()
+            },
+            body: JSON.stringify(planData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            // Redirect to Stripe checkout
+            return stripe.redirectToCheckout({ sessionId: data.id });
+        })
+        .then(result => {
+            if (result.error) {
+                throw new Error(result.error.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to start checkout process: ' + error.message);
+            // Reset button state
+            button.prop('disabled', false)
+                  .html('Subscribe for $' + planData.planPrice + '/month');
+        })
+        .finally(() => {
+            // Restore scroll position
+            window.scrollTo(0, currentScroll);
+            focusWithoutScroll(button);
+            setTimeout(() => button.blur(), 10);
+        });
     });
 
     // Prevent form submissions from causing scroll jumps
