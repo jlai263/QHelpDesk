@@ -535,29 +535,262 @@ def payment_success():
             flash('No organization found.', 'danger')
             return redirect(url_for('admin.manage_organization'))
         
-        # Update the organization's subscription
-        if org.current_subscription:
-            org.current_subscription.status = 'cancelled'
-            org.current_subscription.end_date = datetime.utcnow()
-        
-        # Create new subscription
-        subscription = Subscription(
-            organization_id=org.id,
-            plan_id=plan.id,
-            status='active',
-            start_date=datetime.utcnow(),
-            next_billing_date=datetime.utcnow() + timedelta(days=30)
-        )
-        db.session.add(subscription)
-        
-        # Update organization's subscription
+        current_plan = org.subscription_plan
+        current_subscription = org.current_subscription
+        stripe_instance = get_stripe()
+
+        def create_stripe_event_log(event_type, description, metadata=None):
+            """Helper function to log events to Stripe"""
+            try:
+                event_data = {
+                    'object': {
+                        'customer': org.stripe_customer_id,
+                        'description': description,
+                        'metadata': metadata or {},
+                        'livemode': False,  # Since we're in test mode
+                    }
+                }
+
+                # Add specific data based on event type
+                if event_type == 'checkout.session.completed':
+                    event_data['object'].update({
+                        'mode': 'subscription',
+                        'payment_status': 'paid',
+                    })
+                elif event_type.startswith('customer.subscription'):
+                    event_data['object'].update({
+                        'status': metadata.get('status', 'active'),
+                        'current_period_end': metadata.get('effective_date'),
+                        'cancel_at_period_end': metadata.get('action') == 'schedule_downgrade',
+                        'cancel_at': metadata.get('effective_date'),
+                    })
+                elif event_type.startswith('invoice'):
+                    event_data['object'].update({
+                        'status': 'paid',
+                        'amount_paid': metadata.get('amount', 0),
+                        'billing_reason': metadata.get('action', 'subscription_update'),
+                    })
+
+                # Create the event with enhanced visibility
+                stripe_instance.Event.create(
+                    type=event_type,
+                    data=event_data
+                )
+            except Exception as e:
+                print(f"Error logging Stripe event: {str(e)}")
+
+        # Handle different subscription scenarios
+        if current_subscription:
+            if current_subscription.status == 'cancelled':
+                # Reactivating a cancelled subscription with the same plan
+                if current_plan and current_plan.id == plan.id:
+                    if org.stripe_subscription_id:
+                        try:
+                            # Reactivate in Stripe first
+                            stripe_sub = stripe_instance.Subscription.modify(
+                                org.stripe_subscription_id,
+                                cancel_at_period_end=False,
+                                billing_cycle_anchor='unchanged',
+                                proration_behavior='none',
+                                metadata={
+                                    'action': 'reactivate',
+                                    'organization_id': str(org.id),
+                                    'plan_name': plan.name,
+                                    'previous_status': 'cancelled'
+                                }
+                            )
+                            # Log the reactivation event
+                            create_stripe_event_log(
+                                'subscription.reactivated',
+                                f'Subscription reactivated for {org.name}',
+                                {
+                                    'organization_id': str(org.id),
+                                    'plan_name': plan.name,
+                                    'next_billing_date': stripe_sub.current_period_end
+                                }
+                            )
+                            current_subscription.next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                        except Exception as e:
+                            print(f"Stripe reactivation error: {str(e)}")
+                            flash('Error syncing with payment system. Please contact support.', 'danger')
+                            return redirect(url_for('admin.manage_organization'))
+                    
+                    current_subscription.status = 'active'
+                    current_subscription.end_date = None
+                    flash(f'Your {plan.name} subscription has been reactivated. You will be charged on your next billing date: {current_subscription.next_billing_date.strftime("%B %d, %Y")}.', 'success')
+            
+            elif current_subscription.status == 'scheduled_downgrade':
+                if current_plan.price < plan.price:
+                    # Reverting a scheduled downgrade (going back to higher tier)
+                    if org.stripe_subscription_id:
+                        try:
+                            stripe_sub = stripe_instance.Subscription.modify(
+                                org.stripe_subscription_id,
+                                cancel_at_period_end=False,
+                                items=[{'price': current_plan.stripe_price_id}],
+                                billing_cycle_anchor='unchanged',
+                                proration_behavior='none',
+                                metadata={
+                                    'action': 'revert_downgrade',
+                                    'organization_id': str(org.id),
+                                    'plan_name': current_plan.name,
+                                    'previous_status': 'scheduled_downgrade'
+                                }
+                            )
+                            # Log the revert event
+                            create_stripe_event_log(
+                                'subscription.downgrade_reverted',
+                                f'Scheduled downgrade reverted for {org.name}',
+                                {
+                                    'organization_id': str(org.id),
+                                    'plan_name': current_plan.name,
+                                    'next_billing_date': stripe_sub.current_period_end
+                                }
+                            )
+                            current_subscription.next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                        except Exception as e:
+                            print(f"Stripe revert error: {str(e)}")
+                            flash('Error syncing with payment system. Please contact support.', 'danger')
+                            return redirect(url_for('admin.manage_organization'))
+                    
+                    # Delete any scheduled subscriptions
+                    scheduled_sub = Subscription.query.filter_by(
+                        organization_id=org.id,
+                        status='scheduled'
+                    ).first()
+                    if scheduled_sub:
+                        db.session.delete(scheduled_sub)
+                    
+                    current_subscription.status = 'active'
+                    current_subscription.end_date = None
+                    flash(f'Your scheduled downgrade has been cancelled. You will keep your {current_plan.name} plan.', 'success')
+            
+            else:  # Active subscription
+                if current_plan:
+                    if plan.price < current_plan.price:
+                        # Downgrading to a cheaper plan
+                        if org.stripe_subscription_id:
+                            try:
+                                # Schedule the downgrade in Stripe
+                                stripe_sub = stripe_instance.Subscription.modify(
+                                    org.stripe_subscription_id,
+                                    cancel_at_period_end=True,
+                                    proration_behavior='none',
+                                    metadata={
+                                        'action': 'schedule_downgrade',
+                                        'organization_id': str(org.id),
+                                        'current_plan': current_plan.name,
+                                        'new_plan': plan.name,
+                                        'downgrade_date': datetime.fromtimestamp(stripe_sub.current_period_end).strftime('%Y-%m-%d')
+                                    }
+                                )
+                                # Log the downgrade scheduling event
+                                create_stripe_event_log(
+                                    'subscription.downgrade_scheduled',
+                                    f'Subscription downgrade scheduled for {org.name}',
+                                    {
+                                        'organization_id': str(org.id),
+                                        'from_plan': current_plan.name,
+                                        'to_plan': plan.name,
+                                        'effective_date': stripe_sub.current_period_end
+                                    }
+                                )
+                                next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                            except Exception as e:
+                                print(f"Stripe downgrade error: {str(e)}")
+                                flash('Error syncing with payment system. Please contact support.', 'danger')
+                                return redirect(url_for('admin.manage_organization'))
+                        else:
+                            next_billing_date = current_subscription.next_billing_date
+                        
+                        # Create new subscription that starts at the next billing date
+                        new_subscription = Subscription(
+                            organization_id=org.id,
+                            plan_id=plan.id,
+                            status='scheduled',
+                            start_date=next_billing_date,
+                            next_billing_date=next_billing_date + timedelta(days=30)
+                        )
+                        db.session.add(new_subscription)
+                        
+                        # Mark current subscription as scheduled to end
+                        current_subscription.status = 'scheduled_downgrade'
+                        current_subscription.end_date = next_billing_date
+                        
+                        flash(f'Your subscription will be downgraded to the {plan.name} plan on {next_billing_date.strftime("%B %d, %Y")}. '
+                              f'You will keep your {current_plan.name} features until then. '
+                              f'You can revert this change anytime before {next_billing_date.strftime("%B %d, %Y")}.', 'info')
+                    else:
+                        # Upgrading to a more expensive plan - apply immediately with proration
+                        if org.stripe_subscription_id:
+                            try:
+                                # Upgrade in Stripe immediately with proration
+                                stripe_sub = stripe_instance.Subscription.modify(
+                                    org.stripe_subscription_id,
+                                    items=[{'price': plan.stripe_price_id}],
+                                    proration_behavior='always_invoice',
+                                    billing_cycle_anchor='unchanged',
+                                    metadata={
+                                        'action': 'upgrade',
+                                        'organization_id': str(org.id),
+                                        'previous_plan': current_plan.name,
+                                        'new_plan': plan.name,
+                                        'upgrade_date': datetime.utcnow().strftime('%Y-%m-%d')
+                                    }
+                                )
+                                # Log the upgrade event
+                                create_stripe_event_log(
+                                    'subscription.upgraded',
+                                    f'Subscription upgraded for {org.name}',
+                                    {
+                                        'organization_id': str(org.id),
+                                        'from_plan': current_plan.name,
+                                        'to_plan': plan.name,
+                                        'proration_date': datetime.utcnow().timestamp()
+                                    }
+                                )
+                                next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                            except Exception as e:
+                                print(f"Stripe upgrade error: {str(e)}")
+                                flash('Error syncing with payment system. Please contact support.', 'danger')
+                                return redirect(url_for('admin.manage_organization'))
+                        else:
+                            next_billing_date = datetime.utcnow() + timedelta(days=30)
+                        
+                        current_subscription.status = 'cancelled'
+                        current_subscription.end_date = datetime.utcnow()
+                        
+                        # Create new subscription
+                        new_subscription = Subscription(
+                            organization_id=org.id,
+                            plan_id=plan.id,
+                            status='active',
+                            start_date=datetime.utcnow(),
+                            next_billing_date=next_billing_date
+                        )
+                        db.session.add(new_subscription)
+                        org.current_subscription_id = new_subscription.id
+                        
+                        flash(f'Successfully upgraded to the {plan.name} plan! You will be charged a prorated amount for the upgrade.', 'success')
+
+        # Update organization's plan
         org.subscription_plan_id = plan.id
-        org.current_subscription_id = subscription.id
-        
         db.session.commit()
-        flash(f'Successfully upgraded to {plan.name} plan!', 'success')
+        
+        # When upgrading, add invoice.paid event
+        create_stripe_event_log(
+            'invoice.paid',
+            f'Upgrade proration invoice paid for {org.name}',
+            {
+                'organization_id': str(org.id),
+                'from_plan': current_plan.name,
+                'to_plan': plan.name,
+                'amount': plan.price - current_plan.price
+            }
+        )
         
     except Exception as e:
+        db.session.rollback()
         flash(f'Error processing payment: {str(e)}', 'danger')
     
     return redirect(url_for('admin.manage_organization'))
@@ -812,4 +1045,222 @@ def reactivate_subscription():
     except Exception as e:
         db.session.rollback()
         flash(f'Error reactivating subscription: {str(e)}', 'danger')
-        return redirect(url_for('admin.resubscribe')) 
+        return redirect(url_for('admin.resubscribe'))
+
+@bp.route('/switch_plan', methods=['POST'])
+@login_required
+@admin_required
+def switch_plan():
+    plan_id = request.form.get('plan_id')
+    if not plan_id:
+        flash('Invalid plan selection.', 'danger')
+        return redirect(url_for('admin.manage_organization'))
+    
+    try:
+        # Get the plan
+        plan = SubscriptionPlan.query.get(plan_id)
+        if not plan:
+            flash('Invalid plan selected.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+        
+        org = current_user.organization
+        if not org:
+            flash('No organization found.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+        
+        current_plan = org.subscription_plan
+        current_subscription = org.current_subscription
+        stripe_instance = get_stripe()
+
+        def log_subscription_change(action, details):
+            """Helper function to log subscription changes"""
+            print(f"\n=== Subscription Change Log ===")
+            print(f"Action: {action}")
+            print(f"Organization: {org.name} (ID: {org.id})")
+            print(f"Current Plan: {current_plan.name} (${current_plan.price}/month)")
+            print(f"Target Plan: {plan.name} (${plan.price}/month)")
+            print("Details:", details)
+            print("==============================\n")
+
+        if not current_subscription or not current_plan:
+            # New subscription - redirect to Stripe payment
+            return redirect(url_for('admin.payment_checkout', plan_id=plan_id))
+        
+        # Check if this is a downgrade (moving to a cheaper plan)
+        is_downgrade = plan.price < current_plan.price
+        
+        if is_downgrade:
+            # Handle downgrade - no payment needed, just schedule the change
+            next_billing_date = current_subscription.next_billing_date or (datetime.utcnow() + timedelta(days=30))
+            
+            # Log initial state
+            log_subscription_change("DOWNGRADE_STARTED", {
+                "Current Status": current_subscription.status,
+                "Current End Date": current_subscription.end_date,
+                "Next Billing Date": next_billing_date
+            })
+            
+            # Only try to modify Stripe subscription if it exists
+            stripe_updated = False
+            if hasattr(org, 'stripe_subscription_id') and org.stripe_subscription_id:
+                try:
+                    # Get the current subscription from Stripe
+                    stripe_sub = stripe_instance.Subscription.retrieve(org.stripe_subscription_id)
+                    
+                    # Schedule the downgrade in Stripe by updating the subscription
+                    stripe_sub = stripe_instance.Subscription.modify(
+                        org.stripe_subscription_id,
+                        cancel_at_period_end=True,
+                        proration_behavior='none',
+                        metadata={
+                            'action': 'schedule_downgrade',
+                            'organization_id': str(org.id),
+                            'current_plan': current_plan.name,
+                            'new_plan': plan.name,
+                            'downgrade_date': datetime.fromtimestamp(stripe_sub.current_period_end).strftime('%Y-%m-%d')
+                        }
+                    )
+                    
+                    # Schedule the new subscription to start at period end
+                    stripe_instance.SubscriptionSchedule.create(
+                        customer=org.stripe_customer_id,
+                        start_date=stripe_sub.current_period_end,
+                        phases=[{
+                            'items': [{'price': plan.stripe_price_id, 'quantity': 1}],
+                            'start_date': stripe_sub.current_period_end
+                        }]
+                    )
+                    
+                    next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                    stripe_updated = True
+                    
+                    log_subscription_change("STRIPE_UPDATED", {
+                        "Subscription ID": org.stripe_subscription_id,
+                        "Cancel At Period End": True,
+                        "Period End": stripe_sub.current_period_end,
+                        "New Next Billing Date": next_billing_date
+                    })
+                except Exception as e:
+                    print(f"Stripe downgrade error: {str(e)}")
+                    # Continue with local changes even if Stripe update fails
+            
+            # Create new subscription that starts at the next billing date
+            new_subscription = Subscription(
+                organization_id=org.id,
+                plan_id=plan.id,
+                status='scheduled',
+                start_date=next_billing_date,
+                next_billing_date=next_billing_date + timedelta(days=30)
+            )
+            db.session.add(new_subscription)
+            
+            # Mark current subscription as scheduled to end
+            current_subscription.status = 'scheduled_downgrade'
+            current_subscription.end_date = next_billing_date
+            
+            # Log database changes
+            log_subscription_change("DATABASE_UPDATED", {
+                "Current Subscription": {
+                    "Status": current_subscription.status,
+                    "End Date": current_subscription.end_date
+                },
+                "New Subscription": {
+                    "Status": new_subscription.status,
+                    "Start Date": new_subscription.start_date,
+                    "Next Billing Date": new_subscription.next_billing_date
+                }
+            })
+            
+            try:
+                db.session.commit()
+                log_subscription_change("CHANGES_COMMITTED", {
+                    "Success": True,
+                    "Stripe Updated": stripe_updated,
+                    "Database Updated": True
+                })
+            except Exception as e:
+                db.session.rollback()
+                log_subscription_change("COMMIT_FAILED", {
+                    "Error": str(e)
+                })
+                raise
+            
+            flash(f'Your subscription will be downgraded to the {plan.name} plan on {next_billing_date.strftime("%B %d, %Y")}. '
+                  f'You will keep your {current_plan.name} features until then. '
+                  f'You can revert this change anytime before {next_billing_date.strftime("%B %d, %Y")}.', 'info')
+            
+            return redirect(url_for('admin.manage_organization'))
+        else:
+            # For upgrades, redirect to Stripe payment
+            return redirect(url_for('admin.payment_checkout', plan_id=plan_id))
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error switching plans: {str(e)}', 'danger')
+        return redirect(url_for('admin.manage_organization'))
+
+@bp.route('/cancel_downgrade', methods=['POST'])
+@login_required
+@admin_required
+def cancel_downgrade():
+    try:
+        org = current_user.organization
+        if not org:
+            flash('No organization found.', 'danger')
+            return redirect(url_for('admin.manage_organization'))
+
+        current_subscription = org.current_subscription
+        if not current_subscription or current_subscription.status != 'scheduled_downgrade':
+            flash('No scheduled downgrade found.', 'warning')
+            return redirect(url_for('admin.manage_organization'))
+
+        # Delete the scheduled subscription
+        scheduled_sub = Subscription.query.filter_by(
+            organization_id=org.id,
+            status='scheduled'
+        ).first()
+        if scheduled_sub:
+            db.session.delete(scheduled_sub)
+
+        # Update Stripe if we have a subscription ID
+        if hasattr(org, 'stripe_subscription_id') and org.stripe_subscription_id:
+            try:
+                stripe_instance = get_stripe()
+                # Cancel the scheduled cancellation in Stripe
+                stripe_sub = stripe_instance.Subscription.modify(
+                    org.stripe_subscription_id,
+                    cancel_at_period_end=False,
+                    metadata={
+                        'action': 'cancel_downgrade',
+                        'organization_id': str(org.id)
+                    }
+                )
+                # Update our next billing date to match Stripe
+                current_subscription.next_billing_date = datetime.fromtimestamp(stripe_sub.current_period_end)
+                
+                # Log the event in Stripe
+                create_stripe_event_log(
+                    'customer.subscription.updated',
+                    f'Scheduled downgrade cancelled for {org.name}',
+                    {
+                        'organization_id': str(org.id),
+                        'action': 'cancel_downgrade',
+                        'status': 'active'
+                    }
+                )
+            except Exception as e:
+                print(f"Stripe cancel downgrade error: {str(e)}")
+                # Continue with local changes even if Stripe update fails
+
+        # Reactivate the current subscription
+        current_subscription.status = 'active'
+        current_subscription.end_date = None
+        
+        db.session.commit()
+        flash('Your scheduled downgrade has been cancelled. You will keep your current plan.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error cancelling downgrade: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.manage_organization')) 

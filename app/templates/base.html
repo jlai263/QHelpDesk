@@ -731,6 +731,57 @@ body {
                 window.scrollTo(0, modalScrollPosition);
             });
         }
+
+        // Prevent Bootstrap from auto-hiding alerts
+        var originalBootstrapAlert = $.fn.alert;
+        $.fn.alert = function(option) {
+            if ($(this).hasClass('permanent-alert') || $(this).hasClass('subscription-alert')) {
+                return this;
+            }
+            return originalBootstrapAlert.apply(this, arguments);
+        };
+
+        // Remove any auto-dismiss functionality from permanent alerts
+        function makePermanentAlertsStay() {
+            $('.permanent-alert, .subscription-alert').each(function() {
+                var $alert = $(this);
+                
+                // Remove Bootstrap's alert data and classes
+                $alert.removeData('alert').removeData('bs.alert');
+                $alert.removeClass('fade in');
+                
+                // Remove any click handlers
+                $alert.off('click');
+                
+                // Remove close button if exists
+                $alert.find('.close').remove();
+                
+                // Force visibility
+                $alert.css({
+                    'display': 'block !important',
+                    'opacity': '1 !important',
+                    'visibility': 'visible !important'
+                });
+            });
+        }
+
+        // Run on page load
+        makePermanentAlertsStay();
+
+        // Run after any AJAX calls
+        $(document).ajaxComplete(function() {
+            makePermanentAlertsStay();
+        });
+
+        // Run after any dynamic content changes
+        var observer = new MutationObserver(function(mutations) {
+            makePermanentAlertsStay();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     });
 </script>
 {% block page_scripts %}{% endblock %}

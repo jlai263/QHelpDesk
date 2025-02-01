@@ -412,6 +412,173 @@ body.modal-open {
     opacity: 1;
     visibility: visible;
 }
+
+/* Alert styles */
+.alert {
+    margin-bottom: 15px;
+    border-radius: 8px;
+    padding: 15px;
+    border: 1px solid transparent;
+    opacity: 1 !important;
+    display: block !important;
+    position: relative;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.alert i {
+    margin-right: 8px;
+}
+
+.alert strong {
+    font-weight: 600;
+}
+
+.alert p {
+    margin: 5px 0;
+}
+
+.alert ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.alert .small {
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
+/* Subscription status alerts */
+.subscription-status-alert,
+.subscription-end-alert {
+    margin: 15px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.subscription-status-alert h5,
+.subscription-end-alert h5 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+/* Permanent subscription alerts */
+.subscription-alert {
+    margin-bottom: 15px !important;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none !important;
+    animation: none !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.subscription-alert.alert-success {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+}
+
+.subscription-alert.alert-warning {
+    background-color: #fff3cd !important;
+    border-color: #ffeeba !important;
+    color: #856404 !important;
+}
+
+.subscription-alert.alert-info {
+    background-color: #d1ecf1 !important;
+    border-color: #bee5eb !important;
+    color: #0c5460 !important;
+}
+
+.subscription-alert i {
+    margin-right: 8px;
+}
+
+/* Override any Bootstrap or custom alert transitions */
+.subscription-alert.fade {
+    transition: none !important;
+    opacity: 1 !important;
+}
+
+.subscription-alert.fade.in {
+    opacity: 1 !important;
+}
+
+/* Permanent alert styles */
+.permanent-alert {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: relative !important;
+    margin-bottom: 15px !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    transition: none !important;
+    animation: none !important;
+    pointer-events: auto !important;
+}
+
+.permanent-alert.alert-info {
+    background-color: #d1ecf1 !important;
+    border-color: #bee5eb !important;
+    color: #0c5460 !important;
+}
+
+.permanent-alert.alert-success {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+}
+
+.permanent-alert.alert-warning {
+    background-color: #fff3cd !important;
+    border-color: #ffeeba !important;
+    color: #856404 !important;
+}
+
+/* Override any Bootstrap alert behaviors */
+.permanent-alert.fade,
+.permanent-alert.fade.in,
+.permanent-alert.fade.show {
+    opacity: 1 !important;
+    display: block !important;
+}
+
+.permanent-alert.alert.fade.show {
+    opacity: 1 !important;
+}
+
+.permanent-alert.collapsing,
+.permanent-alert.collapse,
+.permanent-alert.collapse.in,
+.permanent-alert.collapse.show {
+    display: block !important;
+}
 </style>
 {% endblock %}
 
@@ -662,57 +829,67 @@ body.modal-open {
                                         <p><strong>Team Size:</strong> {% if plan.name == 'Enterprise' %}Unlimited{% else %}Up to {{ plan.team_size_limit }} members{% endif %}</p>
                                     </div>
                                     <div class="card-footer text-center">
-                                        {% if organization.subscription_plan and organization.subscription_plan.id == plan.id %}
-                                                {% if organization.current_subscription and organization.current_subscription.status == 'cancelled' %}
-                                                    {% if plan.price > 0 %}
-                                                        <button type="button" 
-                                                                class="btn btn-success reactivate-subscription-btn" 
-                                                                data-toggle="modal"
-                                                                data-target="#reactivateModal">
-                                                            <i class="fas fa-sync"></i> Reactivate Subscription
-                                                        </button>
+                                        {% if plan.id != organization.subscription_plan.id %}
+                                            {% if organization.current_subscription %}
+                                                {% if organization.current_subscription.status == 'scheduled_downgrade' %}
+                                                    {% if plan.id == organization.current_subscription.plan_id %}
+                                                        <div class="alert alert-info mb-3 permanent-alert">
+                                                            <i class="fas fa-info-circle"></i> Your subscription will be downgraded to {{ plan.name }} on {{ organization.current_subscription.end_date.strftime('%B %d, %Y') }}.
+                                                        </div>
+                                                        <button class="btn btn-secondary" disabled>Downgrade Scheduled</button>
+                                                    {% else %}
+                                                        <button class="btn btn-secondary" disabled>Available after current change</button>
                                                     {% endif %}
-                                                {% else %}
-                                                    <button type="button" class="btn btn-success" disabled>Current Plan</button>
-                                                {% endif %}
-                                        {% else %}
-                                            {% if plan.price > 0 %}
-                                                    {% if organization.current_subscription and organization.current_subscription.status == 'cancelled' %}
-                                                        <button type="button" class="btn btn-secondary" disabled title="Please reactivate your current plan or wait until it expires">
-                                                            Not Available
-                                                        </button>
-                                                    {% elif organization.subscription_plan and organization.subscription_plan.price > 0 %}
-                                                        <button type="button" class="btn btn-secondary" disabled title="Please cancel your current subscription before switching to a different plan">
-                                                        Switch Plan
-                                                    </button>
-                                                {% else %}
-                                                    <div class="stripe-payment-container">
+                                                {% elif plan.price < organization.subscription_plan.price %}
+                                                    <!-- Downgrade - use direct form submission -->
+                                                    <form action="{{ url_for('admin.switch_plan') }}" method="post" class="d-inline">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                        <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                                                        <button type="submit" class="btn btn-primary" 
+                                                                title="Switch to {{ plan.name }} plan at next billing cycle">
+                                                            Switch to {{ plan.name }}
+                                                        </button>
+                                                    </form>
+                                                {% else %}
+                                                    <!-- Upgrade - use Stripe checkout -->
+                                                    <div class="stripe-payment-container">
                                                         <button type="button" class="btn btn-primary subscribe-button" 
                                                                 data-plan-name="{{ plan.name }}"
                                                                 data-plan-price="{{ plan.price }}"
-                                                                data-plan-id="{{ plan.id }}">
-                                                            Subscribe for ${{ "%.2f"|format(plan.price) }}/month
+                                                                data-plan-id="{{ plan.id }}"
+                                                                title="Upgrade to {{ plan.name }} plan">
+                                                            Upgrade to {{ plan.name }}
                                                         </button>
                                                     </div>
                                                 {% endif %}
                                             {% else %}
-                                                    {% if organization.current_subscription and organization.current_subscription.status == 'cancelled' %}
-                                                        <button type="button" class="btn btn-secondary" disabled title="Please wait until your current subscription expires to switch to the Free plan">
-                                                            Available after {{ organization.current_subscription.end_date.strftime('%B %d, %Y') }}
-                                                        </button>
-                                                    {% elif organization.subscription_plan and organization.subscription_plan.price > 0 %}
-                                                        <button type="button" class="btn btn-secondary" disabled title="Please cancel your current subscription to switch to the Free plan">
-                                                        Switch to Free Plan
+                                                <!-- New subscription - use Stripe checkout -->
+                                                <div class="stripe-payment-container">
+                                                    <button type="button" class="btn btn-primary subscribe-button" 
+                                                            data-plan-name="{{ plan.name }}"
+                                                            data-plan-price="{{ plan.price }}"
+                                                            data-plan-id="{{ plan.id }}"
+                                                            title="Subscribe to {{ plan.name }} plan">
+                                                        Select {{ plan.name }} Plan
                                                     </button>
-                                                {% else %}
-                                                        <form action="{{ url_for('admin.change_plan', plan_id=plan.id) }}" method="post" class="no-scroll-form">
+                                                </div>
+                                            {% endif %}
+                                        {% else %}
+                                            {% if organization.current_subscription.status == 'scheduled_downgrade' %}
+                                                <div class="alert alert-info mb-3 permanent-alert">
+                                                    <i class="fas fa-info-circle"></i> Your subscription will be downgraded on {{ organization.current_subscription.end_date.strftime('%B %d, %Y') }}.
+                                                </div>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-secondary" disabled>Current Plan</button>
+                                                    <form action="{{ url_for('admin.cancel_downgrade') }}" method="post" class="d-inline">
                                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                        <button type="submit" class="btn btn-primary">
-                                                            Select Free Plan
+                                                        <button type="submit" class="btn btn-warning">
+                                                            <i class="fas fa-undo"></i> Cancel Downgrade
                                                         </button>
                                                     </form>
-                                                {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <button class="btn btn-secondary" disabled>Current Plan</button>
                                             {% endif %}
                                         {% endif %}
                                     </div>
@@ -877,325 +1054,37 @@ body.modal-open {
 {{ super() }}
 <script src="https://js.stripe.com/v3/"></script>
 <script>
-$(document).ready(function() {
-    // Initialize Stripe only if not already initialized
-    let stripe;
-    if (!stripe) {
-        stripe = Stripe('{{ stripe_public_key }}');
-    }
-
-    // Remove any autofocus attributes that might exist
-    $('[autofocus]').removeAttr('autofocus');
-
-    // Function to safely focus an element without scrolling
-    function focusWithoutScroll(element) {
-        if (element && typeof element.focus === 'function') {
-            // Try modern approach first
-            try {
-                element.focus({ preventScroll: true });
-            } catch (e) {
-                // Fallback for older browsers
-                const scrollPosition = window.pageYOffset;
-                element.focus();
-                window.scrollTo(0, scrollPosition);
-            }
-        }
-    }
-
-    // Prevent button focus scrolling
-    const noScrollButtons = [
-        '.subscribe-button',
-        '.reactivate-subscription-btn',
-        '#cancelSubscriptionBtn',
-        '.invite-member-btn',
-        '[data-toggle="modal"]',
-        '.modal .btn',
-        'button[type="submit"]'
-    ];
-
-    // Store the last scroll position
-    let lastScrollPosition = 0;
-
-    // Add click handler for all modal-related buttons
-    $(noScrollButtons.join(', ')).on('mousedown', function(e) {
-        // Store scroll position before click
-        lastScrollPosition = window.pageYOffset;
-    }).on('click', function(e) {
-        const button = this;
-        
-        // Prevent default focus behavior
-        e.preventDefault();
-        e.stopPropagation();
-
-        // Execute the button's action after preventing scroll
-        setTimeout(() => {
-            // Restore scroll position
-            window.scrollTo(0, lastScrollPosition);
-            
-            // Focus without scrolling if needed
-            focusWithoutScroll(button);
-            
-            // Remove focus after a brief moment
-            setTimeout(() => button.blur(), 10);
-        }, 0);
-    });
-
-    // Modal handling
-    $('.modal').on('show.bs.modal', function(e) {
-        lastScrollPosition = window.pageYOffset;
-        $('body').addClass('modal-open');
-        
-        // Prevent trigger button from causing scroll
-        if (e.relatedTarget) {
-            e.relatedTarget.blur();
-            focusWithoutScroll(e.relatedTarget);
-        }
-    });
-
-    $('.modal').on('shown.bs.modal', function() {
-        window.scrollTo(0, lastScrollPosition);
-        // Focus the first interactive element in modal without scrolling
-        const firstInput = $(this).find('input:visible, button:visible').first();
-        if (firstInput.length) {
-            focusWithoutScroll(firstInput[0]);
-        }
-    });
-
-    $('.modal').on('hidden.bs.modal', function() {
-        $('body').removeClass('modal-open');
-        window.scrollTo(0, lastScrollPosition);
-    });
-
-    // Handle subscription button clicks
-    $('.subscribe-button').on('click', function(e) {
-        const button = $(this);
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Store position before any action
-        const currentScroll = window.pageYOffset;
-        
-        // Disable button and show loading state
-        button.prop('disabled', true)
-              .html('<i class="fas fa-spinner fa-spin"></i> Processing...');
-        
-        // Get plan details from data attributes
-        const planData = {
-            planName: button.data('plan-name'),
-            planPrice: button.data('plan-price'),
-            planId: button.data('plan-id')
-        };
-        
-        // Create Stripe checkout session
-        fetch("{{ url_for('admin.create_checkout_session') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': $('input[name="csrf_token"]').val()
-            },
-            body: JSON.stringify(planData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            // Redirect to Stripe checkout
-            return stripe.redirectToCheckout({ sessionId: data.id });
-        })
-        .then(result => {
-            if (result.error) {
-                throw new Error(result.error.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to start checkout process: ' + error.message);
-            // Reset button state
-            button.prop('disabled', false)
-                  .html('Subscribe for $' + planData.planPrice + '/month');
-        })
-        .finally(() => {
-            // Restore scroll position
-            window.scrollTo(0, currentScroll);
-            focusWithoutScroll(button);
-            setTimeout(() => button.blur(), 10);
-        });
-    });
-
-    // Prevent form submissions from causing scroll jumps
-    $('form').on('submit', function(e) {
-        if (!$(this).hasClass('no-prevent')) {
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle Stripe checkout buttons
+    document.querySelectorAll('.subscribe-button').forEach(button => {
+        button.addEventListener('click', async (e) => {
             e.preventDefault();
-            const form = $(this);
-            const submitButton = form.find('button[type="submit"]');
+            const planId = button.dataset.planId;
+            const planName = button.dataset.planName;
+            const planPrice = button.dataset.planPrice;
             
-            // Store position
-            const currentScroll = window.pageYOffset;
-            
-            // Handle submit button focus
-            if (submitButton.length) {
-                submitButton.blur();
-                focusWithoutScroll(submitButton[0]);
-            }
-            
-            // Submit form and restore position
-            setTimeout(() => {
-                form.submit();
-                window.scrollTo(0, currentScroll);
-            }, 0);
-        }
-    });
-
-    // Handle reactivate subscription confirmation
-    $('#confirmReactivateBtn').on('click', function(e) {
-        const button = $(this);
-        if (button.prop('disabled')) return;
-        
-        button.prop('disabled', true)
-              .html('<i class="fas fa-spinner fa-spin"></i> Reactivating...');
-        
-        $.ajax({
-            url: "{{ url_for('admin.reactivate_subscription') }}",
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': $('input[name="csrf_token"]').val()
-            },
-            data: JSON.stringify({}),
-            success: function(response) {
-                $('#reactivateModal').modal('hide');
+            try {
+                const response = await fetch('/admin/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        plan_id: planId,
+                        plan_name: planName,
+                        plan_price: planPrice
+                    })
+                });
                 
-                // Show success message
-                const successAlert = $('<div class="alert alert-success" style="margin-top: 20px;">' +
-                    '<i class="fas fa-check-circle"></i> Your subscription has been successfully reactivated!' +
-                    '</div>');
-                $('.reactivate-subscription-btn').closest('.card-footer').after(successAlert);
-                
-                // Disable the button but keep it visible
-                $('.reactivate-subscription-btn').prop('disabled', true);
-                
-                // Remove the subscription end alert if it exists
-                $('.subscription-end-alert').fadeOut(300);
-                
-                // Reload the page after a short delay
-                setTimeout(function() {
-                window.location.reload();
-                }, 2000);
-            },
-            error: function(xhr) {
-                $('#reactivateModal').modal('hide');
-                const errorMsg = xhr.responseJSON?.error || 'Failed to reactivate subscription';
-                alert(errorMsg);
-                button.prop('disabled', false)
-                      .html('<i class="fas fa-sync"></i> Reactivate');
+                const session = await response.json();
+                if (session.url) {
+                    window.location.href = session.url;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('There was an error processing your request. Please try again.');
             }
         });
-    });
-
-    // Handle cancel subscription confirmation
-    $('#confirmCancelBtn').on('click', function(e) {
-        const button = $(this);
-        if (button.prop('disabled')) return;
-        
-        button.prop('disabled', true)
-              .html('<i class="fas fa-spinner fa-spin"></i> Cancelling...');
-        
-        $.ajax({
-            url: "{{ url_for('admin.cancel_subscription') }}",
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': $('input[name="csrf_token"]').val()
-                },
-            data: JSON.stringify({}),
-            success: function(response) {
-                $('#cancelModal').modal('hide');
-                
-                // Show success message
-                const successAlert = $('<div class="alert alert-warning" style="margin-top: 20px;">' +
-                    '<i class="fas fa-info-circle"></i> Your subscription has been cancelled. ' +
-                    'You will continue to have access until the end of your current billing period.' +
-                    '</div>');
-                
-                // Disable the cancel button but keep it visible
-                $('#cancelSubscriptionBtn').prop('disabled', true);
-                
-                // Add the success alert
-                $('#cancelSubscriptionBtn').closest('.card-footer').after(successAlert);
-                
-                // Reload the page after a short delay
-                setTimeout(function() {
-                    window.location.reload();
-                }, 2000);
-            },
-            error: function(xhr) {
-                $('#cancelModal').modal('hide');
-                const errorMsg = xhr.responseJSON?.error || 'Failed to cancel subscription';
-                alert(errorMsg);
-                button.prop('disabled', false)
-                      .html('<i class="fas fa-times"></i> Yes, Cancel Subscription');
-            }
-        });
-    });
-    
-    // Handle invite form submission
-    var inviteForm = $('#inviteForm');
-    var emailPrefixInput = $('#emailPrefix');
-    var fullEmailInput = $('#fullEmail');
-    var emailError = $('#emailError');
-    
-    inviteForm.on('submit', function(e) {
-        e.preventDefault();
-        
-        var emailPrefix = emailPrefixInput.val().trim();
-        var domain = '{{ organization.domain }}';
-        
-        if (!emailPrefix) {
-            emailError.text('Email prefix is required');
-            emailError.show();
-            return false;
-        }
-        
-        // Validate email prefix format
-        var emailRegex = /^[a-zA-Z0-9._%+-]+$/;
-        if (!emailRegex.test(emailPrefix)) {
-            emailError.text('Invalid email prefix format');
-            emailError.show();
-            return false;
-        }
-        
-        var fullEmail = emailPrefix + '@' + domain;
-        fullEmailInput.val(fullEmail);
-        
-        // Hide any previous error messages
-        emailError.hide();
-        
-        // Submit the form
-        this.submit();
-    });
-    
-    // Handle edit role modal
-    $('#editRoleModal').on('show.bs.modal', function (event) {
-        var button = $(event.relatedTarget);
-        var userId = button.data('userid');
-        var username = button.data('username');
-        var currentRole = button.data('role');
-        
-        var modal = $(this);
-        var editUsername = modal.find('#editUsername');
-        var editRoleForm = modal.find('#editRoleForm');
-        var removeMemberForm = modal.find('#removeMemberForm');
-        
-        // Set the username
-        editUsername.text(username);
-        
-        // Set the form action URLs
-        editRoleForm.attr('action', "{{ url_for('admin.update_member_role', user_id=0) }}".replace('0', userId));
-        removeMemberForm.attr('action', "{{ url_for('admin.remove_member', user_id=0) }}".replace('0', userId));
-        
-        // Check the appropriate radio button
-        modal.find('input[name="role"][value="' + currentRole + '"]').prop('checked', true);
     });
 });
 </script>
