@@ -759,20 +759,20 @@ def payment_success():
                         
                         current_subscription.status = 'cancelled'
                         current_subscription.end_date = datetime.utcnow()
-                        
-                        # Create new subscription
+        
+        # Create new subscription
                         new_subscription = Subscription(
-                            organization_id=org.id,
-                            plan_id=plan.id,
-                            status='active',
-                            start_date=datetime.utcnow(),
+            organization_id=org.id,
+            plan_id=plan.id,
+            status='active',
+            start_date=datetime.utcnow(),
                             next_billing_date=next_billing_date
-                        )
+        )
                         db.session.add(new_subscription)
                         org.current_subscription_id = new_subscription.id
-                        
+        
                         flash(f'Successfully upgraded to the {plan.name} plan! You will be charged a prorated amount for the upgrade.', 'success')
-
+        
         # Update organization's plan
         org.subscription_plan_id = plan.id
         db.session.commit()
@@ -1045,7 +1045,7 @@ def reactivate_subscription():
     except Exception as e:
         db.session.rollback()
         flash(f'Error reactivating subscription: {str(e)}', 'danger')
-        return redirect(url_for('admin.resubscribe'))
+        return redirect(url_for('admin.resubscribe')) 
 
 @bp.route('/switch_plan', methods=['POST'])
 @login_required
